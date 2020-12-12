@@ -32,15 +32,15 @@ class QueueChannel(commands.Cog):
         self.bot = bot
         self._last_embed = None
         self._last_message = None
-        self.allowed_gid = 774388983710220328
-        self.allowed_cid = 787391243135090759
+        self.allowed_gid = 762026283177213982
+        self.allowed_cid = 773895672415649832
 
         self.member_converter = commands.MemberConverter()
 
     async def cog_check(self, ctx):
         if not ctx.guild:
             return False
-        if ctx.guild.id == self.allowed_gid:
+        if ctx.guild.id == self.allowed_gid or ctx.guild.id == 774388983710220328:
             return True
 
     async def get_last_embed(self, delete=True):
@@ -87,14 +87,15 @@ class QueueChannel(commands.Cog):
             return
 
         if message.guild.id != self.allowed_gid or message.channel.id != self.allowed_cid:
-            return
+            if message.guild.id != 774388983710220328 or message.channel.id != 787391243135090759:
+                return
 
         test_content = message.content.lower()
         if not (test_content.startswith('**in line:**') or test_content.startswith('**in line**')):
             return
 
         try:
-            await message.add_reaction('<:online:787390858440736798>')
+            await message.add_reaction('<:d20:773638073052561428>')
         except:
             pass
 
