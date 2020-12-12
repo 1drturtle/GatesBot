@@ -65,7 +65,7 @@ class Utility(commands.Cog):
         Repeats what you say.
         """
         out = repeat
-        if ctx.author.id != self.bot.owner:
+        if ctx.author.id != self.bot.dev_id:
             out = f'{ctx.author.display_name}: ' + repeat
         return await ctx.send(out)
 
