@@ -32,6 +32,7 @@ async def get_prefix(client, message):
 class GatesBot(commands.Bot):
     def __init__(self, command_prefix=get_prefix, desc: str = '', **options):
         self.launch_time = datetime.utcnow()
+        self.ready_time = None
         self._dev_id = config.DEV_ID
 
         self.mongo_client = motor.motor_asyncio.AsyncIOMotorClient(config.MONGO_URL)
@@ -45,6 +46,10 @@ class GatesBot(commands.Bot):
     @property
     def dev_id(self):
         return self._dev_id
+
+    @property
+    def uptime(self):
+        return datetime.utcnow() - self.launch_time
 
 
 intents = discord.Intents(guilds=True, members=True, messages=True, reactions=True)
