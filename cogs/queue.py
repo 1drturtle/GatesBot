@@ -1,8 +1,10 @@
 import discord
 from discord.ext import commands
 import operator
+import re
 
 from utils.functions import try_delete, create_default_embed
+from utils.checks import has_role
 
 tiers = {
     1: 1,
@@ -13,6 +15,9 @@ tiers = {
     17: 6,
     20: 7
 }
+
+line_re_1 = re.compile(re.escape('**in line**'), re.IGNORECASE)
+line_re_2 = re.compile(re.escape('**in line:**'), re.IGNORECASE)
 
 
 class ContextProxy:
@@ -47,6 +52,9 @@ class QueueChannel(commands.Cog):
                 continue
 
             prev_embed: discord.Embed = x.embeds[0]
+
+            if prev_embed.title != 'Gate Sign-Up List':
+                continue
             self._last_embed = prev_embed
             self._last_message = x
 
@@ -55,11 +63,23 @@ class QueueChannel(commands.Cog):
             break
 
     def sort_fields(self, embed):
-        x = sorted([(f.name, f.value) for f in embed.fields], key=operator.itemgetter(0))
+        for i, field in enumerate(embed.fields):
+            split = field.name.split()
+            if len(split) == 3:
+                embed.set_field_at(i, name=' '.join(split[1:]), value=field.value)
+
+        x = sorted(((f.name, f.value) for f in embed.fields), key=operator.itemgetter(0))
         embed.clear_fields()
-        _ = [embed.add_field(name=f'{i + 1}. {a[0] if len(a[0].split()) == 2 else " ".join(a[0].split()[1:])}',
+        _ = [embed.add_field(name=f'{i + 1}. {a[0]}',
                              value=a[1], inline=False) for i, a in enumerate(x)]
         return embed
+
+    async def update_last_embed(self):
+        if self._last_embed is None:
+            await self.get_last_embed(delete=False)
+            if self._last_embed is None:
+                return None
+        return True
 
     @commands.Cog.listener(name='on_message')
     async def queue_listener(self, message):
@@ -78,9 +98,6 @@ class QueueChannel(commands.Cog):
         except:
             pass
 
-        player_class = message.content.lstrip('**In Line:**').lstrip('**In Line**')
-        player_name = message.author.display_name
-
         if self._last_message is not None:
             await try_delete(self._last_message)
 
@@ -94,13 +111,16 @@ class QueueChannel(commands.Cog):
             if self._last_embed:
                 embed = self._last_embed
             else:
-                embed = create_default_embed(ContextProxy(self.bot, message))
+                embed = create_default_embed(ContextProxy(self.bot, message), title='Gate Sign-Up List')
         else:
             embed = prev_embed
 
         # Get Tier
+        player_class = line_re_2.sub('', line_re_1.sub('', message.content)).strip()
         player_level = int(player_class.split()[2]) if player_class.split()[2].isdigit() else 4
         player_tier = ([1]+[tiers[tier] for tier in tiers if player_level >= tier])[-1]
+
+        # print(f'{player_level=}, {player_tier=}, {player_class=}')
 
         # Go through and add fields
         did_add = False
@@ -128,13 +148,13 @@ class QueueChannel(commands.Cog):
         self._last_message = msg
 
     @commands.command(name='claim')
+    @has_role('DM')
     async def claim_group(self, ctx, group: int):
         """Claims a group from the queue."""
 
-        if self._last_embed is None:
-            await self.get_last_embed(delete=False)
-            if self._last_embed is None:
-                return await ctx.send('Could not find a Queue. Please contact the developer if this is a mistake.')
+        update = await self.update_last_embed()
+        if not update:
+            return await ctx.send('Could not find a queue to claim. Please contact the developer if this is a mistake.')
 
         available_count = len(self._last_embed.fields)
 
@@ -157,12 +177,12 @@ class QueueChannel(commands.Cog):
                               f'{selected.value}')
 
     @commands.command(name='leave')
+    @has_role('Player')
     async def leave_queue(self, ctx):
         """Takes you out of the current queue, if you are in it."""
-        if self._last_embed is None:
-            await self.get_last_embed(delete=False)
-            if self._last_embed is None:
-                return await ctx.send('Could not find a Queue. Please contact the developer if this is a mistake.')
+        update = await self.update_last_embed()
+        if not update:
+            return await ctx.send('Could not find a queue to leave. Please contact the developer if this is a mistake.')
 
         our_fields = [(i, x) for i, x in enumerate(self._last_embed.fields) if f'<@{ctx.author.id}>' in x.value]
         if not our_fields:
@@ -189,12 +209,70 @@ class QueueChannel(commands.Cog):
         embed = self.sort_fields(embed)
         self._last_embed = embed
 
-        # Send new emebd
+        # Send new embed
         new_msg = await self._last_message.channel.send(embed=self._last_embed)
         await try_delete(self._last_message)
         self._last_message = new_msg
 
+    @commands.command(name='move')
+    @has_role('Assistant')
+    async def move_player(self, ctx, original_group: int, player: discord.Member, new_group: int):
+        """Moves a player to a different group. Requires the Assistant role."""
 
+        if original_group == new_group:
+            return await ctx.send('Original group equals the new group, exiting.')
+
+        update = await self.update_last_embed()
+        if not update:
+            return await ctx.send('Could not find a queue to edit. Please contact the developer if this is a mistake.')
+
+        available_count = len(self._last_embed.fields)
+
+        if (original_group < 1 or original_group > available_count) or (new_group < 1 or new_group > available_count):
+            if available_count == 1:
+                return await ctx.send('You can only select group 1.')
+            return await ctx.send(f'Group number must be between 1 and {available_count}')
+
+        our_fields = [(i, x) for i, x in enumerate(self._last_embed.fields) if f'<@{player.id}>' in x.value]
+        if not our_fields:
+            return await ctx.send(f'{player.display_name} is currently not in any queue.'
+                                  f' Please contact the developer if this is a mistake.')
+
+        # Does the Original Group intersect a field we are in?
+        intersect = next((f for f in our_fields if f[0]+1 == original_group), None)
+        if not intersect:
+            return await ctx.send('Could not find player in original group. Please contact the developer if this is '
+                                  'a mistake.')
+
+        embed = self._last_embed
+
+        # Remove Person from Old Field
+        intersected = embed.fields[intersect[0]]
+        people = intersected.value.split(', ')
+        people.remove(f'<@{player.id}>')
+        intersected.value = ', '.join(people)
+        if intersected.value:
+            embed.fields[intersect[0]] = intersected
+            embed.set_field_at(intersect[0], name=intersected.name, value=intersected.value)
+        else:
+            embed.remove_field(intersect[0])
+            new_group -= 1
+
+        # Add person to New Field
+        new_field = embed.fields[new_group - 1]
+        new_people = new_field.value.split(', ')
+        new_people.append(f'<@{player.id}>')
+        new_field.value = ', '.join(new_people)
+        embed.set_field_at(new_group-1, name=new_field.name, value=new_field.value)
+
+        # Sort & Set
+        embed = self.sort_fields(embed)
+        self._last_embed = embed
+
+        # Send new embed
+        new_msg = await self._last_message.channel.send(embed=self._last_embed)
+        await try_delete(self._last_message)
+        self._last_message = new_msg
 
 
 def setup(bot):
