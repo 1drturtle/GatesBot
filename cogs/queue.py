@@ -256,7 +256,8 @@ class QueueChannel(commands.Cog):
             embed.set_field_at(intersect[0], name=intersected.name, value=intersected.value)
         else:
             embed.remove_field(intersect[0])
-            new_group -= 1
+            if new_group > len(embed.fields):
+                new_group -= 1
 
         # Add person to New Field
         new_field = embed.fields[new_group - 1]
