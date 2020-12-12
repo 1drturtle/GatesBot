@@ -26,8 +26,8 @@ class CommandErrorHandler(commands.Cog):
             scope.set_tag("is_private_message", context.guild is None)
             scope.set_tag("channel.id", context.channel.id)
             scope.set_tag("channel.name", str(context.channel))
-            if context.guild_id is not None:
-                scope.set_tag("guild.id", context.guild_id)
+            if context.guild is not None:
+                scope.set_tag("guild.id", context.guild.id)
                 scope.set_tag("guild.name", str(context.guild))
             sentry_sdk.capture_exception(error)
             log.info('Error logged to SENTRY')
