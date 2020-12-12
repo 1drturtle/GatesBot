@@ -1,5 +1,4 @@
 from discord.ext import commands
-from utils.checks import is_owner
 import discord
 from utils.functions import create_default_embed
 
@@ -16,7 +15,7 @@ class Admin(commands.Cog):
 
     # ---- Bot Owner Commands ----
     @commands.group(name='admin', invoke_without_command=True)
-    @is_owner()
+    @commands.is_owner()
     async def admin(self, ctx):
         """
         Owner only commands for the bot.
@@ -24,7 +23,7 @@ class Admin(commands.Cog):
         await ctx.send('give a subcommand nerd')
 
     @admin.command(name="restart")
-    @is_owner()
+    @commands.is_owner()
     async def restart(self, ctx):
         """
         Stops the bot, restarting it.
@@ -37,7 +36,7 @@ class Admin(commands.Cog):
                 pass
 
     @admin.command(name='leave')
-    @is_owner()
+    @commands.is_owner()
     async def leave_guild(self, ctx, guild_id: int):
         """
         Leaves the specified guild
@@ -55,7 +54,7 @@ class Admin(commands.Cog):
     # ---- Server Owner Commands ----
 
     @commands.command(name='prefix', description='Changes the Bot\'s Prefix. Must have Manage Server.')
-    @commands.check_any(commands.has_guild_permissions(manage_guild=True), is_owner())
+    @commands.check_any(commands.has_guild_permissions(manage_guild=True), commands.is_owner())
     @commands.guild_only()
     async def change_prefix(self, ctx, to_change: str = None):
         """
