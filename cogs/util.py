@@ -132,7 +132,7 @@ class Utility(commands.Cog):
         try:
             message = await ctx.channel.fetch_message(message_id)
         except discord.NotFound:
-            await ctx.send(f'Could not find the message with ID `{message_id}`')
+            return await ctx.send(f'Could not find the message with ID `{message_id}`')
         embed.title = f'Escaped Markdown for Message with ID `{message_id}`'
         embed.description = discord.utils.escape_markdown(message.content)
         await ctx.send(embed=embed)
