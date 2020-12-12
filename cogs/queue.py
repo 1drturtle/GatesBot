@@ -274,6 +274,52 @@ class QueueChannel(commands.Cog):
         await try_delete(self._last_message)
         self._last_message = new_msg
 
+    @commands.command(name='create')
+    @commands.check_any(commands.is_owner(), has_role('Assistant'))
+    async def create_queue_member(self, ctx, member: discord.Member, tier: int):
+        """Manually creates a queue entry. Must have a role called Assistant"""
+        update = await self.update_last_embed()
+        if not update:
+            return await ctx.send('Could not find a queue to edit. Please contact the developer if this is a mistake.')
+
+        # Get Tier
+        player_tier = tier
+        embed = self._last_embed
+
+        # Go through and add fields
+        did_add = False
+        current_fields = embed.fields
+        for i, field in enumerate(current_fields):
+            tier = int(field.name.split()[2])
+            if not tier == player_tier:
+                continue
+            players = field.value.split(', ')
+            if len(players) >= 5:
+                continue
+            players.append(f'<@{member.id}>')
+            embed.set_field_at(i, name=f'Rank {player_tier}', value=', '.join(players))
+            did_add = True
+
+        if not did_add:
+            embed.add_field(name=f'Rank {player_tier}', value=f'<@{member.id}>')
+
+        # Sort Fields
+        embed = self.sort_fields(embed)
+
+        # Send & Save
+        self._last_embed = embed
+        msg = await self._last_message.channel.send(embed=embed)
+        self._last_message = msg
+
+    @commands.command(name='queue')
+    async def send_current_queue(self, ctx):
+        """Sends the current queue."""
+        update = await self.update_last_embed()
+        if not update:
+            return await ctx.send('Could not find a queue to edit. Please contact the developer if this is a mistake.')
+
+        return await ctx.send(embed=self._last_embed)
+
 
 def setup(bot):
     bot.add_cog(QueueChannel(bot))
