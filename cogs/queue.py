@@ -44,7 +44,12 @@ class QueueChannel(commands.Cog):
             return True
 
     async def get_last_embed(self, delete=True):
-        channel = self.bot.get_guild(self.allowed_gid).get_channel(self.allowed_cid)
+        guild = self.bot.get_guild(self.allowed_gid)
+        if guild is None:
+            guild = self.bot.get_guild(774388983710220328)
+        channel = guild.get_channel(self.allowed_cid)
+        if channel is None:
+            channel = guild.get_channel(787391243135090759)
         async for x in channel.history(limit=50):
             if not x.author.id == self.bot.user.id:
                 continue
@@ -113,6 +118,7 @@ class QueueChannel(commands.Cog):
                 embed = self._last_embed
             else:
                 embed = create_default_embed(ContextProxy(self.bot, message), title='Gate Sign-Up List')
+                embed.remove_author()
         else:
             embed = prev_embed
 
@@ -321,6 +327,40 @@ class QueueChannel(commands.Cog):
             return await ctx.send('Could not find a queue to edit. Please contact the developer if this is a mistake.')
 
         return await ctx.send(embed=self._last_embed)
+
+    @commands.command(name='remove')
+    @has_role('Assistant')
+    async def remove_queue_member(self, ctx, player: discord.Member):
+        """Moves a player to a different group. Requires the Assistant role."""
+
+        update = await self.update_last_embed()
+        if not update:
+            return await ctx.send('Could not find a queue to edit. Please contact the developer if this is a mistake.')
+
+        our_fields = next(((i, x) for i, x in enumerate(self._last_embed.fields) if f'<@{player.id}>' in x.value), None)
+        if not our_fields:
+            return await ctx.send(f'{player.display_name} is currently not in any queue.'
+                                  f' Please contact the developer if this is a mistake.')
+
+        embed = self._last_embed
+
+        intersected = our_fields[1]
+        people = intersected.value.split(', ')
+        people.remove(f'<@{player.id}>')
+        intersected.value = ', '.join(people)
+        if intersected.value:
+            embed.set_field_at(our_fields[0], name=intersected.name, value=intersected.value)
+        else:
+            embed.remove_field(our_fields[0])
+
+        # Sort & Set
+        embed = self.sort_fields(embed)
+        self._last_embed = embed
+
+        # Send new embed
+        new_msg = await self._last_message.channel.send(embed=self._last_embed)
+        await try_delete(self._last_message)
+        self._last_message = new_msg
 
 
 def setup(bot):
