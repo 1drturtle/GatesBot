@@ -155,7 +155,7 @@ class QueueChannel(commands.Cog):
         self._last_message = msg
 
     @commands.command(name='claim')
-    @has_role('DM')
+    @commands.check_any(has_role('DM'), commands.is_owner())
     async def claim_group(self, ctx, group: int):
         """Claims a group from the queue."""
 
@@ -184,7 +184,7 @@ class QueueChannel(commands.Cog):
                               f'{selected.value}')
 
     @commands.command(name='leave')
-    @has_role('Player')
+    @commands.check_any(has_role('Player'), commands.is_owner())
     async def leave_queue(self, ctx):
         """Takes you out of the current queue, if you are in it."""
         update = await self.update_last_embed()
@@ -222,7 +222,7 @@ class QueueChannel(commands.Cog):
         self._last_message = new_msg
 
     @commands.command(name='move')
-    @has_role('Assistant')
+    @commands.check_any(has_role('Assistant'), commands.is_owner())
     async def move_player(self, ctx, original_group: int, player: discord.Member, new_group: int):
         """Moves a player to a different group. Requires the Assistant role."""
 
@@ -329,7 +329,7 @@ class QueueChannel(commands.Cog):
         return await ctx.send(embed=self._last_embed)
 
     @commands.command(name='remove')
-    @has_role('Assistant')
+    @commands.check_any(has_role('Assistant'), commands.is_owner())
     async def remove_queue_member(self, ctx, player: discord.Member):
         """Moves a player to a different group. Requires the Assistant role."""
 
