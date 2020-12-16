@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 import operator
 import re
+import datetime
 
 from utils.functions import try_delete, create_default_embed
 from utils.checks import has_role
@@ -60,6 +61,8 @@ class QueueChannel(commands.Cog):
 
             if prev_embed.title != 'Gate Sign-Up List':
                 continue
+
+            prev_embed.timestamp = datetime.datetime.utcnow()
             self._last_embed = prev_embed
             self._last_message = x
 
