@@ -62,13 +62,14 @@ class QueueChannel(commands.Cog):
             if prev_embed.title != 'Gate Sign-Up List':
                 continue
 
-            prev_embed.timestamp = datetime.datetime.utcnow()
             self._last_embed = prev_embed
             self._last_message = x
 
             if delete:
                 await try_delete(x)
             break
+        if self._last_embed is not None:
+            self._last_embed.timestamp = datetime.datetime.utcnow()
 
     def sort_fields(self, embed):
         for i, field in enumerate(embed.fields):
@@ -183,8 +184,8 @@ class QueueChannel(commands.Cog):
         await try_delete(self._last_message)
         self._last_message = new_msg
 
-        return await ctx.send(f'{ctx.author.display_name} has claimed group #{group}. Here are the mentions - \n'
-                              f'{selected.value}')
+        await ctx.send(f'{ctx.author.mention} has claimed group #{group}.')
+        return await ctx.send(f'```{selected.value}```')
 
     @commands.command(name='leave')
     @commands.check_any(has_role('Player'), commands.is_owner())
