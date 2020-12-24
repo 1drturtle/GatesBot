@@ -17,8 +17,7 @@ tiers = {
     20: 7
 }
 
-line_re_1 = re.compile(re.escape('**in line**'), re.IGNORECASE)
-line_re_2 = re.compile(re.escape('**in line:**'), re.IGNORECASE)
+line_re = re.compile(r'\*\*in line:*\*\*', re.IGNORECASE)
 
 
 class ContextProxy:
@@ -100,7 +99,7 @@ class QueueChannel(commands.Cog):
                 return
 
         test_content = message.content.lower()
-        if not (test_content.startswith('**in line:**') or test_content.startswith('**in line**')):
+        if not line_re.match(test_content):
             return
 
         try:
@@ -126,9 +125,11 @@ class QueueChannel(commands.Cog):
         else:
             embed = prev_embed
 
+        # format: **In Line:** X - Subclass Class X/Subclass Class X
+
         # Get Tier
-        player_class = line_re_2.sub('', line_re_1.sub('', message.content)).strip()
-        player_level = int(player_class.split()[2]) if player_class.split()[2].isdigit() else 4
+        player_class = line_re.sub('', message.content).strip()
+        player_level = int(player_class.split(' - ')[0]) if player_class.split(' - ')[0].isdigit() else 4
         player_tier = ([1]+[tiers[tier] for tier in tiers if player_level >= tier])[-1]
 
         # print(f'{player_level=}, {player_tier=}, {player_class=}')
@@ -155,6 +156,7 @@ class QueueChannel(commands.Cog):
 
         # Send & Save
         self._last_embed = embed
+        self._last_embed.timestamp = datetime.datetime.utcnow()
         msg = await message.channel.send(embed=embed)
         self._last_message = msg
 
