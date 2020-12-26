@@ -18,6 +18,7 @@ tiers = {
 }
 
 line_re = re.compile(r'\*\*in line:*\*\*', re.IGNORECASE)
+player_class_regex = re.compile(r'((\w+ )*(\w+) (\d+))')
 
 
 class ContextProxy:
@@ -89,6 +90,27 @@ class QueueChannel(commands.Cog):
                 return None
         return True
 
+    def parse_player_class(self, class_str) -> dict:
+        out = {
+            'total_level': 0,
+            'classes': []
+        }
+
+        # [Subclass] <Class> <Level> / [Subclass] <Class> <Level>
+        # TODO: Do something with Player
+        matches = player_class_regex.findall(class_str)
+        for match in matches:
+            try:
+                level = int(match[-1].strip())  # Last group is always a number.
+            except ValueError:
+                level = 4
+            subclass = match[0].strip() if match[0] else 'None'
+            player_class = match[1].strip() if match[1] else 'None'
+            out['total_level'] += level
+            out['classes'].append({'class': player_class, 'subclass': subclass, 'level': level})
+
+        return out
+
     @commands.Cog.listener(name='on_message')
     async def queue_listener(self, message):
         if message.guild is None:
@@ -125,14 +147,12 @@ class QueueChannel(commands.Cog):
         else:
             embed = prev_embed
 
-        # format: **In Line:** X - Subclass Class X/Subclass Class X
+        # format: **In Line:** Subclass Class X/Subclass Class X
 
         # Get Tier
-        player_class = line_re.sub('', message.content).strip()
-        player_level = int(player_class.split(' - ')[0]) if player_class.split(' - ')[0].isdigit() else 4
+        player_details = self.parse_player_class(line_re.sub('', message.content).strip())
+        player_level = player_details['total_level']
         player_tier = ([1]+[tiers[tier] for tier in tiers if player_level >= tier])[-1]
-
-        # print(f'{player_level=}, {player_tier=}, {player_class=}')
 
         # Go through and add fields
         did_add = False
