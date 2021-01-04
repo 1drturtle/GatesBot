@@ -12,3 +12,4 @@ TIERS = {
     17: 6,
     20: 7
 }
+GROUP_SIZE = 5

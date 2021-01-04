@@ -60,17 +60,7 @@ class QueueChannel(commands.Cog):
         if ctx.guild.id == constants.DEBUG_SERVER and self.bot.environemnt == 'testing':
             return True
 
-    # def sort_fields(self, embed):
-    #     for i, field in enumerate(embed.fields):
-    #         split = field.name.split()
-    #         if len(split) == 3:
-    #             embed.set_field_at(i, name=' '.join(split[1:]), value=field.value)
-    #
-    #     x = sorted(((f.name, f.value) for f in embed.fields), key=operator.itemgetter(0))
-    #     embed.clear_fields()
-    #     _ = [embed.add_field(name=f'{i + 1}. {a[0]}',
-    #                          value=a[1], inline=False) for i, a in enumerate(x)]
-    #     return embed
+
 
     @commands.Cog.listener(name='on_message')
     async def queue_listener(self, message):
@@ -101,13 +91,29 @@ class QueueChannel(commands.Cog):
 
         # Find our Queue Data
         queue_data = await self.db.find_one({'guild_id': server_id, 'channel_id': channel_id})
+        if queue_data is None:
+            queue_data = {
+                'groups': [],
+                'server_id': server_id,
+                'channel_id': channel_id
+            }
         queue = Queue.from_dict(message.guild, queue_data)
 
         # Are we already in a Queue?
-        if queue.in_queue(message.author.id):
+        if queue.in_queue(player.member.id):
             return None
 
-        
+        # Can we fit in an existing group?
+        if group := queue.can_fit_in_group(player):
+            pass
+
+        # TODO: Logic for adding player to group
+        # ...
+
+        # Update Queue
+        channel = self.bot.get_channel(channel_id)
+        new_msg = queue.update(self.db, channel, self._last_message)
+        self._last_message = new_msg
 
     @commands.command(name='claim')
     @commands.check_any(has_role('DM'), commands.is_owner())

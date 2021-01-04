@@ -1,5 +1,10 @@
+import operator
+
 import discord
+
+from utils.constants import GROUP_SIZE
 from utils.constants import TIERS as tiers
+from utils.functions import create_queue_embed, try_delete
 
 
 def parse_tier_from_total(total_level: int) -> int:
@@ -32,6 +37,8 @@ class Player:
         if 'classes' not in data:
             data['classes'] = []
         member = guild.get_member(data['member_id'])
+        if member is None:
+            return None
         return cls(member, data['total_level'], data['classes'])
 
     def to_dict(self):
@@ -62,7 +69,7 @@ class Group:
 
     def to_dict(self) -> dict:
         return {
-            'players': [player.to_dict() for player in self.players],
+            'players': [player.to_dict() for player in self.players if player is not None],
             'tier': self.tier,
             'position': self.position
         }
@@ -93,6 +100,44 @@ class Queue:
             'channel_id': self.channel_id
         }
 
+    def generate_embed(self, bot) -> discord.Embed:
+        embed = create_queue_embed(bot)
+
+        # Sort Groups by Tier
+        self.groups.sort(key=lambda x: x.tier)
+
+        for index, group in enumerate(self.groups):
+            embed.add_field(name=f'{index+1}. Rank {group.tier}',
+                            value=', '.join([f'<@{player.member.id}>' for player in group.players]))
+
+        return embed
+
+    async def _get_message(self, channel):
+        async for msg in channel.history(limit=50):
+            if len(msg.embeds != 1):
+                continue
+
+            embed = msg.embeds[0]
+
+            if embed.title != 'Gate Sign-up List':
+                continue
+            return msg
+
+    async def update(self, bot, db, channel: discord.TextChannel, message: discord.Message = None) -> discord.Message:
+        # Find the old queue message and delete it
+        msg = message
+        if msg is None:
+            msg = await self._get_message(channel)
+        await try_delete(msg)
+
+        # Remove empty groups
+        self.groups = [group for group in self.groups if len(group.players) != 0]
+
+        # Make a new embed
+        embed = self.generate_embed(bot)
+        return await channel.send(embed=embed)
+
+
     def in_queue(self, member_id):
         member = None
         for group in self.groups:
@@ -101,3 +146,11 @@ class Queue:
                 member = intersect[0]
                 break
         return member
+
+    def can_fit_in_group(self, player: Player):
+        for group in self.groups:
+            if group.tier == player.tier:
+                if len(group.players) >= GROUP_SIZE:
+                    continue
+                return group
+        return False
