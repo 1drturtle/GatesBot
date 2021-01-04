@@ -167,7 +167,8 @@ class Queue:
         for group in self.groups:
             for player in group.players:
                 if player.member.id == member_id:
-                    return member
+                    member = player
+        return member
 
     def can_fit_in_group(self, player: Player):
         out = None

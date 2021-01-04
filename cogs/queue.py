@@ -48,6 +48,7 @@ async def queue_from_guild(db, guild: discord.Guild) -> Queue:
         queue_data = {
             'groups': [],
             'server_id': guild.id,
+            'channel_id': None
         }
     queue = Queue.from_dict(guild, queue_data)
     return queue
@@ -97,11 +98,12 @@ class QueueChannel(commands.Cog):
         player: Player = Player.new(message.author, player_details)
 
         # Get our Queue
-        queue = queue_from_guild(self.db, self.bot.get_guild(server_id))
+        queue = await queue_from_guild(self.db, self.bot.get_guild(server_id))
 
         # Are we already in a Queue?
         if queue.in_queue(player.member.id):
-            return None
+            if not self.bot.environment == 'testing':
+                return None
 
         # Can we fit in an existing group?
         can_fit = queue.can_fit_in_group(player)
