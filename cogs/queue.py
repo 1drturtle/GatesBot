@@ -60,8 +60,6 @@ class QueueChannel(commands.Cog):
         if ctx.guild.id == constants.DEBUG_SERVER and self.bot.environemnt == 'testing':
             return True
 
-
-
     @commands.Cog.listener(name='on_message')
     async def queue_listener(self, message):
         if message.guild is None:
@@ -104,15 +102,15 @@ class QueueChannel(commands.Cog):
             return None
 
         # Can we fit in an existing group?
-        if group := queue.can_fit_in_group(player):
-            pass
+        if group_index := queue.can_fit_in_group(player):
+            queue.groups[group_index].players.append(player)
 
         # TODO: Logic for adding player to group
         # ...
 
         # Update Queue
         channel = self.bot.get_channel(channel_id)
-        new_msg = queue.update(self.db, channel, self._last_message)
+        new_msg = await queue.update(self.db, channel, self._last_message)
         self._last_message = new_msg
 
     @commands.command(name='claim')

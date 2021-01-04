@@ -60,6 +60,10 @@ class Player:
     def member(self):
         return self._member
 
+    @property
+    def mention(self):
+        return f'<@{self.member.id}>'
+
 
 class Group:
     def __init__(self, players: list[Player], tier: int, position: int = None):
@@ -107,8 +111,8 @@ class Queue:
         self.groups.sort(key=lambda x: x.tier)
 
         for index, group in enumerate(self.groups):
-            embed.add_field(name=f'{index+1}. Rank {group.tier}',
-                            value=', '.join([f'<@{player.member.id}>' for player in group.players]))
+            embed.add_field(name=f'{index + 1}. Rank {group.tier}',
+                            value=', '.join([player.mention for player in group.players]))
 
         return embed
 
@@ -133,10 +137,16 @@ class Queue:
         # Remove empty groups
         self.groups = [group for group in self.groups if len(group.players) != 0]
 
+        # DB Commit
+        data = self.to_dict()
+        await db.update_one(
+                            {'server_id': self.server_id, 'channel_id': self.channel_id},
+                            {'$set': data}, upsert=True
+                            )
+
         # Make a new embed
         embed = self.generate_embed(bot)
         return await channel.send(embed=embed)
-
 
     def in_queue(self, member_id):
         member = None
@@ -148,9 +158,9 @@ class Queue:
         return member
 
     def can_fit_in_group(self, player: Player):
-        for group in self.groups:
+        for index, group in enumerate(self.groups):
             if group.tier == player.tier:
                 if len(group.players) >= GROUP_SIZE:
                     continue
-                return group
+                return index
         return False
