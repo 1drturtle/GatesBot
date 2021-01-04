@@ -1,14 +1,12 @@
+import logging
+import re
+
 import discord
 from discord.ext import commands
-import operator
-import re
-import datetime
-import logging
 
-from utils.functions import try_delete, create_default_embed
-from utils.checks import has_role
 import utils.constants as constants
 from cogs.models.queue_models import Player, Group, Queue
+from utils.checks import has_role
 
 line_re = re.compile(r'\*\*in line:*\*\*', re.IGNORECASE)
 player_class_regex = re.compile(r'((\w+ )*(\w+) (\d+))')
@@ -36,12 +34,23 @@ def parse_player_class(class_str) -> dict:
             level = int(match[-1].strip())  # Last group is always a number.
         except ValueError:
             level = 4
-        subclass = match[0].strip() if match[0] else 'None'
-        player_class = match[1].strip() if match[1] else 'None'
+        player_class = match[2].strip() if match[2] else 'None'
+        subclass = match[1].strip() if match[1] else 'None'
         out['total_level'] += level
         out['classes'].append({'class': player_class, 'subclass': subclass, 'level': level})
 
     return out
+
+
+async def queue_from_guild(db, guild: discord.Guild) -> Queue:
+    queue_data = await db.find_one({'guild_id': guild.id})
+    if queue_data is None:
+        queue_data = {
+            'groups': [],
+            'server_id': guild.id,
+        }
+    queue = Queue.from_dict(guild, queue_data)
+    return queue
 
 
 class QueueChannel(commands.Cog):
@@ -87,31 +96,27 @@ class QueueChannel(commands.Cog):
         # Create a Player Object.
         player: Player = Player.new(message.author, player_details)
 
-        # Find our Queue Data
-        queue_data = await self.db.find_one({'guild_id': server_id, 'channel_id': channel_id})
-        if queue_data is None:
-            queue_data = {
-                'groups': [],
-                'server_id': server_id,
-                'channel_id': channel_id
-            }
-        queue = Queue.from_dict(message.guild, queue_data)
+        # Get our Queue
+        queue = queue_from_guild(self.db, self.bot.get_guild(server_id))
 
         # Are we already in a Queue?
         if queue.in_queue(player.member.id):
             return None
 
         # Can we fit in an existing group?
-        if group_index := queue.can_fit_in_group(player):
-            queue.groups[group_index].players.append(player)
-
-        # TODO: Logic for adding player to group
-        # ...
+        can_fit = queue.can_fit_in_group(player)
+        if can_fit is not None:
+            queue.groups[can_fit].players.append(player)
+        # If we can't, let's make a new group for our Tier.
+        else:
+            new_group = Group.new(player.tier, [player])
+            queue.groups.append(new_group)
 
         # Update Queue
         channel = self.bot.get_channel(channel_id)
-        new_msg = await queue.update(self.db, channel, self._last_message)
+        new_msg = await queue.update(self.bot, self.db, channel, self._last_message)
         self._last_message = new_msg
+
 
     @commands.command(name='claim')
     @commands.check_any(has_role('DM'), commands.is_owner())

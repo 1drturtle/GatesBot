@@ -12,4 +12,4 @@ VERSION = os.getenv('VERSION', 'testing')
 
 # Error Reporting
 SENTRY_URL = os.getenv('SENTRY_URL', None)
-ENVIRONMENT = os.getenv('ENV', 'development')
+ENVIRONMENT = os.getenv('ENVIRONMENT', 'testing')

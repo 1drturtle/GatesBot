@@ -3,12 +3,12 @@ import operator
 import discord
 
 from utils.constants import GROUP_SIZE
-from utils.constants import TIERS as tiers
+from utils.constants import TIERS as TIERS
 from utils.functions import create_queue_embed, try_delete
 
 
 def parse_tier_from_total(total_level: int) -> int:
-    return ([1] + [tiers[tier] for tier in tiers if total_level >= tier])[-1]
+    return ([1] + [TIERS[tier] for tier in TIERS if total_level >= tier])[-1]
 
 
 class QueueException(BaseException):
@@ -64,9 +64,12 @@ class Player:
     def mention(self):
         return f'<@{self.member.id}>'
 
+    def __repr__(self):
+        return f'<Player {self.member=}, {self.levels=}, {self.tier=}>'
+
 
 class Group:
-    def __init__(self, players: list[Player], tier: int, position: int = None):
+    def __init__(self, players: list, tier: int, position: int = None):
         self.players = players
         self.tier = tier
         self.position = position
@@ -79,22 +82,29 @@ class Group:
         }
 
     @classmethod
+    def new(cls, tier, players = None, position = None):
+        return cls(players=players, tier=tier, position=position)
+
+    @classmethod
     def from_dict(cls, guild: discord.Guild, data: dict):
         players = [Player.from_dict(guild, item) for item in data['players']]
         tier = data['tier']
         pos = data['position']
         return cls(players=players, tier=tier, position=pos)
 
+    def __repr__(self):
+        return f'<Group {self.players=}, {self.tier=}, {self.position=}>'
+
 
 class Queue:
-    def __init__(self, groups: list[Group], server_id, channel_id):
+    def __init__(self, groups: list, server_id, channel_id):
         self.groups = groups
         self.server_id = server_id
         self.channel_id = channel_id
 
     @classmethod
     def from_dict(cls, guild: discord.Guild, data: dict):
-        groups = [Group.from_dict(guild, x) for x in data['guilds']]
+        groups = [Group.from_dict(guild, x) for x in data['groups']]
         return cls(groups=groups, server_id=data['server_id'], channel_id=data['channel_id'])
 
     def to_dict(self):
@@ -110,21 +120,24 @@ class Queue:
         # Sort Groups by Tier
         self.groups.sort(key=lambda x: x.tier)
 
+        embed.title = 'Gate Sign-Up List'
+
         for index, group in enumerate(self.groups):
             embed.add_field(name=f'{index + 1}. Rank {group.tier}',
-                            value=', '.join([player.mention for player in group.players]))
+                            value=', '.join([player.mention for player in group.players]), inline=False)
 
         return embed
 
     async def _get_message(self, channel):
         async for msg in channel.history(limit=50):
-            if len(msg.embeds != 1):
+            if len(msg.embeds) != 1:
                 continue
 
             embed = msg.embeds[0]
 
             if embed.title != 'Gate Sign-up List':
                 continue
+
             return msg
 
     async def update(self, bot, db, channel: discord.TextChannel, message: discord.Message = None) -> discord.Message:
@@ -132,7 +145,8 @@ class Queue:
         msg = message
         if msg is None:
             msg = await self._get_message(channel)
-        await try_delete(msg)
+        if msg is not None:
+            await try_delete(msg)
 
         # Remove empty groups
         self.groups = [group for group in self.groups if len(group.players) != 0]
@@ -140,7 +154,7 @@ class Queue:
         # DB Commit
         data = self.to_dict()
         await db.update_one(
-                            {'server_id': self.server_id, 'channel_id': self.channel_id},
+                            {'guild_id': self.server_id, 'channel_id': self.channel_id},
                             {'$set': data}, upsert=True
                             )
 
@@ -151,16 +165,19 @@ class Queue:
     def in_queue(self, member_id):
         member = None
         for group in self.groups:
-            intersect = [x for x in group.players if x.member.id == member_id]
-            if intersect:
-                member = intersect[0]
-                break
-        return member
+            for player in group.players:
+                if player.member.id == member_id:
+                    return member
 
     def can_fit_in_group(self, player: Player):
+        out = None
         for index, group in enumerate(self.groups):
             if group.tier == player.tier:
                 if len(group.players) >= GROUP_SIZE:
                     continue
-                return index
-        return False
+                out = index
+                break
+        return out
+
+    def __repr__(self):
+        return f'<Queue {self.groups=}, {self.server_id=}, {self.channel_id=}>'
