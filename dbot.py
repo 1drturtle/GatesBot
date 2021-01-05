@@ -34,6 +34,7 @@ class GatesBot(commands.Bot):
         self.launch_time = datetime.utcnow()
         self.ready_time = None
         self._dev_id = config.DEV_ID
+        self.environment = config.ENVIRONMENT
 
         self.mongo_client = motor.motor_asyncio.AsyncIOMotorClient(config.MONGO_URL)
         self.mdb = self.mongo_client[config.MONGO_DB]
@@ -68,7 +69,7 @@ log = logging.getLogger('bot')
 
 # Make discord logs a bit quieter
 logging.getLogger('discord.gateway').setLevel(logging.WARNING)
-logging.getLogger('discord.client').setLevel(logging.WARN)
+logging.getLogger('discord.client').setLevel(logging.WARNING)
 
 
 @bot.event
@@ -87,10 +88,10 @@ async def on_ready():
 @bot.event
 async def on_message(message):
     if message.author.bot:
-        return
+        return None
 
     if not bot.is_ready():
-        return
+        return None
 
     context = await bot.get_context(message)
     if context.command is not None:

@@ -13,6 +13,14 @@ def create_default_embed(ctx, **kwargs) -> discord.Embed:
     return embed
 
 
+def create_queue_embed(bot, **kwargs) -> discord.Embed:
+    embed = discord.Embed(color=discord.Color(int('0x2F3136', base=16)), **kwargs)
+    embed.set_footer(text=bot.user.name,
+                     icon_url=str(bot.user.avatar_url))
+    embed.timestamp = datetime.datetime.utcnow()
+    return embed
+
+
 async def try_delete(message):
     try:
         await message.delete()
