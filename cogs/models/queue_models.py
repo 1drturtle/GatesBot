@@ -64,6 +64,17 @@ class Player:
     def mention(self):
         return f'<@{self.member.id}>'
 
+    @property
+    def level_str(self):
+        out = []
+        for level in self.levels:
+            out_str = ''
+            out_str += level['subclass']+' ' if level['subclass'] is not None else ''
+            out_str += level['class'] + ' ' if level['class'] is not None else '*None*'
+            out_str += str(level['level'])
+            out.append(out_str)
+        return ' / '.join(out)
+
     def __repr__(self):
         return f'<Player {self.member=}, {self.levels=}, {self.tier=}>'
 

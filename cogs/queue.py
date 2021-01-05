@@ -52,6 +52,7 @@ async def queue_from_guild(db, guild: discord.Guild) -> Queue:
             'channel_id': None
         }
     queue = Queue.from_dict(guild, queue_data)
+    queue.groups.sort(key=lambda x: x.tier)
     return queue
 
 
@@ -192,14 +193,13 @@ class QueueChannel(commands.Cog):
         if check is not None:
             return await ctx.send(check)
 
-
         serv = self.bot.get_guild(self.server_id)
         # Take the gate off the list, save to DB & Update Embed
         popped = queue.groups.pop(group - 1)
         await queue.update(self.bot, self.db, serv.get_channel(self.channel_id))
 
         # Spit out a summons to #gate-summons
-        summons_channel_id = constants.SUMMONS_CHANNEL if self.bot.environment != 'testing'\
+        summons_channel_id = constants.SUMMONS_CHANNEL if self.bot.environment != 'testing' \
             else constants.DEBUG_SUMMONS_CHANNEL
 
         summons_ch = serv.get_channel(summons_channel_id)
@@ -220,7 +220,6 @@ class QueueChannel(commands.Cog):
         if group_index is None:
             return await ctx.send('You are not currently in the queue, so I cannot remove you from it.',
                                   delete_after=10)
-
 
         # Pop the Player from the Group and Update!
         serv = self.bot.get_guild(self.server_id)
@@ -269,13 +268,46 @@ class QueueChannel(commands.Cog):
     @commands.command(name='queue')
     async def send_current_queue(self, ctx):
         """Sends the current queue."""
-        # TODO: Rewrite Send Current Queue
+        queue = await queue_from_guild(self.db, ctx.guild)
+        embed = queue.generate_embed(self.bot)
+        embed.title = 'Gate Sign-Up Queue'
+        return await ctx.send(embed=embed)
 
     @commands.command(name='remove')
     @commands.check_any(has_role('Assistant'), commands.is_owner())
     async def remove_queue_member(self, ctx, player: discord.Member):
-        """Moves a player to a different group. Requires the Assistant role."""
-        # TODO: Rewrite Remove Member
+        """Removes a player from Queue. Requires the Assistant role."""
+        queue = await queue_from_guild(self.db, ctx.guild)
+
+        group_index = queue.in_queue(player.id)
+        if group_index is None:
+            return await ctx.send(f'{player.mention} was not in the queue, so they have not been removed.',
+                                  delete_after=10)
+
+        # Pop the Player from the Group and Update!
+        serv = self.bot.get_guild(self.server_id)
+        queue.groups[group_index[0]].players.pop(group_index[1])
+        await queue.update(self.bot, self.db, serv.get_channel(self.channel_id))
+
+        return await ctx.send(f'{player.mention} has been removed from Group #{group_index[0] + 1}', delete_after=10)
+
+    @commands.command(name='groupinfo')
+    async def group_info(self, ctx, group_number: int):
+        """Returns Information about a group."""
+        queue = await queue_from_guild(self.db, ctx.guild)
+
+        length = len(queue.groups)
+        check = length_check(length, group_number)
+        if check is not None:
+            return await ctx.send(check)
+
+        group = queue.groups[group_number - 1]
+        group.players.sort(key=lambda x: x.member.display_name)
+
+        embed = create_default_embed(ctx)
+        embed.title = f'Information for Group #{group_number}'
+        embed.description = '`'*3+'diff\n' + '\n'.join([f'- {player.member.display_name}: {player.level_str}' for player in group.players]) + '\n```'
+        return await ctx.send(embed=embed)
 
 
 def setup(bot):
