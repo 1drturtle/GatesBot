@@ -7,6 +7,7 @@ from discord.ext import commands
 import utils.constants as constants
 from cogs.models.queue_models import Player, Group, Queue
 from utils.checks import has_role
+from utils.functions import create_default_embed
 
 line_re = re.compile(r'\*\*in line:*\*\*', re.IGNORECASE)
 player_class_regex = re.compile(r'((\w+ )*(\w+) (\d+))')
@@ -61,13 +62,17 @@ class QueueChannel(commands.Cog):
 
         self.member_converter = commands.MemberConverter()
         self.db = bot.mdb['player_queue']
+        self.gate_db = bot.mdb['gate_list']
+
+        self.server_id = constants.GATES_SERVER if self.bot.environment != 'testing' else constants.DEBUG_SERVER
+        self.channel_id = constants.GATES_CHANNEL if self.bot.environment != 'testing' else constants.DEBUG_CHANNEL
 
     async def cog_check(self, ctx):
         if not ctx.guild:
             return False
         if ctx.guild.id == constants.GATES_SERVER:
             return True
-        if ctx.guild.id == constants.DEBUG_SERVER and self.bot.environemnt == 'testing':
+        if ctx.guild.id == constants.DEBUG_SERVER and self.bot.environment == 'testing':
             return True
 
     @commands.Cog.listener(name='on_message')
@@ -75,10 +80,7 @@ class QueueChannel(commands.Cog):
         if message.guild is None:
             return None
 
-        server_id = constants.GATES_SERVER if self.bot.environment != 'testing' else constants.DEBUG_SERVER
-        channel_id = constants.GATES_CHANNEL if self.bot.environment != 'testing' else constants.DEBUG_CHANNEL
-
-        if not (server_id == message.guild.id and channel_id == message.channel.id):
+        if not (self.server_id == message.guild.id and self.channel_id == message.channel.id):
             return None
 
         if not line_re.match(message.content):
@@ -98,7 +100,7 @@ class QueueChannel(commands.Cog):
         player: Player = Player.new(message.author, player_details)
 
         # Get our Queue
-        queue = await queue_from_guild(self.db, self.bot.get_guild(server_id))
+        queue = await queue_from_guild(self.db, self.bot.get_guild(self.server_id))
 
         # Are we already in a Queue?
         if queue.in_queue(player.member.id):
@@ -115,16 +117,90 @@ class QueueChannel(commands.Cog):
             queue.groups.append(new_group)
 
         # Update Queue
-        channel = self.bot.get_channel(channel_id)
+        channel = self.bot.get_channel(self.channel_id)
         new_msg = await queue.update(self.bot, self.db, channel, self._last_message)
         self._last_message = new_msg
 
+    @commands.group(name='gates', invoke_without_command=True)
+    @commands.check_any(has_role('Admin'), commands.is_owner())
+    async def gates(self, ctx):
+        """Lists all of the current registered Gates."""
+        gates = await self.gate_db.find().to_list(None)
+        embed = create_default_embed(ctx)
+        out = [f':white_small_square: {gate["name"].title()} Gate - {gate["emoji"]}' for gate in gates]
+
+        embed.title = 'List of Registered Gates'
+        embed.description = '\n'.join(out)
+        embed.set_footer(text=f'To add a gate, see {ctx.prefix}help gates add')
+        return await ctx.send(embed=embed)
+
+    @gates.command(name='add', aliases=['create', 'new'])
+    @commands.check_any(has_role('Admin'), commands.is_owner())
+    async def add_gate(self, ctx, gate_name: str, gate_emoji: str):
+        """
+        Creates a new gate name-to-emoji pair. Must have the Admin role to perform this action.
+        **Will override if there is a gate with the same name!!**
+        """
+        await self.gate_db.update_one({'name': gate_name},
+                                      {'$set': {'name': gate_name.lower(), 'emoji': gate_emoji}}, upsert=True)
+        embed = create_default_embed(ctx)
+        embed.title = 'New Gate Created!'
+        embed.description = f'Gate {gate_name} has been set to {gate_emoji}'
+        return await ctx.send(embed=embed)
+
+    @gates.command(name='remove', aliases=['delete', 'del'])
+    @commands.check_any(has_role('Admin'), commands.is_owner())
+    async def remove_gate(self, ctx, gate_name: str):
+        """
+        Removes a registered gate from the database. **Requires Admin**
+        """
+        exists = await self.gate_db.find_one({'name': gate_name.lower()})
+        if not exists:
+            return await ctx.send(f'Could not find a gate with the name `{gate_name}`. Check `{ctx.prefix}gates` for '
+                                  f'a list of registered gates.')
+        await self.gate_db.delete_one({'name': gate_name.lower()})
+        embed = create_default_embed(ctx)
+        embed.title = 'Removed Gate!'
+        embed.description = f'Gate {gate_name} has been removed from the database.'
+
+        return await ctx.send(embed=embed)
 
     @commands.command(name='claim')
     @commands.check_any(has_role('DM'), commands.is_owner())
-    async def claim_group(self, ctx, group: int):
+    async def claim_group(self, ctx, group: int, gate_name: str):
         """Claims a group from the queue."""
-        # TODO: Rewrite Claim Group
+        queue = await queue_from_guild(self.db, ctx.guild)
+        gate = await self.gate_db.find_one({'name': gate_name.lower()})
+        if gate is None:
+            return await ctx.send('Invalid Gate Name!')
+
+        length = len(queue.groups)
+        if not 1 <= group <= length:
+            out = 'Invalid Group Number. '
+            if length == 0:
+                out += 'No groups available to select!'
+            elif length == 1:
+                out += 'Only one group to select.'
+            else:
+                out += f'Must be between 1 and {length}.'
+            return await ctx.send(out)
+
+        serv = self.bot.get_guild(self.server_id)
+        # Take the gate off the list, save to DB & Update Embed
+        popped = queue.groups.pop(group - 1)
+        await queue.update(self.bot, self.db, serv.get_channel(self.channel_id))
+
+        # Spit out a summons to #gate-summons
+        summons_channel_id = constants.SUMMONS_CHANNEL if self.bot.environment != 'testing'\
+            else constants.DEBUG_SUMMONS_CHANNEL
+
+        summons_ch = serv.get_channel(summons_channel_id)
+        if summons_ch is not None:
+            msg = ', '.join([p.mention for p in popped.players]) + '\n'
+            msg += f'Welcome to the {gate["name"].lower().title()} Gate! Head to #assignments' \
+                   f' and grab the {gate["emoji"]} from the list and head over to the gate!\n' \
+                   f'Claimed by {ctx.author.mention}'
+            await summons_ch.send(msg, allowed_mentions=discord.AllowedMentions(users=True))
 
     @commands.command(name='leave')
     @commands.check_any(has_role('Player'), commands.is_owner())
