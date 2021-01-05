@@ -132,8 +132,7 @@ class QueueChannel(commands.Cog):
 
         # Update Queue
         channel = self.bot.get_channel(self.channel_id)
-        new_msg = await queue.update(self.bot, self.db, channel, self._last_message)
-        self._last_message = new_msg
+        new_msg = await queue.update(self.bot, self.db, channel)
 
     @commands.group(name='gates', invoke_without_command=True)
     @commands.check_any(has_role('Admin'), commands.is_owner())
@@ -234,9 +233,9 @@ class QueueChannel(commands.Cog):
         """Moves a player to a different group. Requires the Assistant role."""
         queue = await queue_from_guild(self.db, ctx.guild)
 
-        group_index = queue.in_queue(ctx.author.id)
+        group_index = queue.in_queue(player.id)
         if group_index is None:
-            return await ctx.send('You are not currently in the queue, so I cannot remove you from it.',
+            return await ctx.send(f'{player.mention} is not currently in the queue, so I cannot remove them from it.',
                                   delete_after=10)
 
         queue.groups.sort(key=lambda x: x.tier)
@@ -263,7 +262,8 @@ class QueueChannel(commands.Cog):
         queue.groups[new_group - 1].players.append(old_player)
         await queue.update(self.bot, self.db, serv.get_channel(self.channel_id))
 
-        return await ctx.send(f'{player.mention} has been moved from Group #{original_group} to Group #{new_group}')
+        return await ctx.send(f'{player.mention} has been moved from Group #{original_group} to Group #{new_group}',
+                              delete_after=10)
 
     @commands.command(name='queue')
     async def send_current_queue(self, ctx):
@@ -291,7 +291,7 @@ class QueueChannel(commands.Cog):
 
         return await ctx.send(f'{player.mention} has been removed from Group #{group_index[0] + 1}', delete_after=10)
 
-    @commands.command(name='groupinfo')
+    @commands.command(name='gateinfo')
     async def group_info(self, ctx, group_number: int):
         """Returns Information about a group."""
         queue = await queue_from_guild(self.db, ctx.guild)

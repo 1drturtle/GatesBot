@@ -140,22 +140,23 @@ class Queue:
         return embed
 
     async def _get_message(self, channel):
-        async for msg in channel.history(limit=50):
+        history = await channel.history(limit=50).flatten()
+        out = None
+        for msg in history:
             if len(msg.embeds) != 1:
                 continue
 
             embed = msg.embeds[0]
-
-            if embed.title != 'Gate Sign-up List':
+            if embed.title != 'Gate Sign-Up List':
                 continue
 
-            return msg
+            out = msg
+            break
+        return out
 
-    async def update(self, bot, db, channel: discord.TextChannel, message: discord.Message = None) -> discord.Message:
+    async def update(self, bot, db, channel: discord.TextChannel) -> discord.Message:
         # Find the old queue message and delete it
-        msg = message
-        if msg is None:
-            msg = await self._get_message(channel)
+        msg = await self._get_message(channel)
         if msg is not None:
             await try_delete(msg)
 
