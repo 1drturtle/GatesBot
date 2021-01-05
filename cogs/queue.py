@@ -75,6 +75,7 @@ class QueueChannel(commands.Cog):
         self._last_message = None
 
         self.member_converter = commands.MemberConverter()
+        self.channel_converter = commands.TextChannelConverter()
         self.db = bot.mdb['player_queue']
         self.gate_db = bot.mdb['gate_list']
 
@@ -202,9 +203,10 @@ class QueueChannel(commands.Cog):
             else constants.DEBUG_SUMMONS_CHANNEL
 
         summons_ch = serv.get_channel(summons_channel_id)
+        assignments_ch = self.channel_converter.convert('assignments')
         if summons_ch is not None:
             msg = ', '.join([p.mention for p in popped.players]) + '\n'
-            msg += f'Welcome to the {gate["name"].lower().title()} Gate! Head to #assignments' \
+            msg += f'Welcome to the {gate["name"].lower().title()} Gate! Head to {f"<#{assignments_ch.id}>" if assignments_ch is not None else "#assignments"}' \
                    f' and grab the {gate["emoji"]} from the list and head over to the gate!\n' \
                    f'Claimed by {ctx.author.mention}'
             await summons_ch.send(msg, allowed_mentions=discord.AllowedMentions(users=True))
