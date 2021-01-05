@@ -266,12 +266,6 @@ class QueueChannel(commands.Cog):
 
         return await ctx.send(f'{player.mention} has been moved from Group #{original_group} to Group #{new_group}')
 
-    @commands.command(name='create')
-    @commands.check_any(commands.is_owner(), has_role('Assistant'))
-    async def create_queue_member(self, ctx, member: discord.Member, tier: int):
-        """Manually creates a queue entry. Must have a role called Assistant"""
-        # TODO: Rewrite Create Queue Member
-
     @commands.command(name='queue')
     async def send_current_queue(self, ctx):
         """Sends the current queue."""
