@@ -55,6 +55,19 @@ async def queue_from_guild(db, guild: discord.Guild) -> Queue:
     return queue
 
 
+def length_check(group_length, requested_length):
+    if not 1 <= requested_length <= group_length:
+        out = 'Invalid Group Number. '
+        if group_length == 0:
+            out += 'No groups available to select!'
+        elif group_length == 1:
+            out += 'Only one group to select.'
+        else:
+            out += f'Must be between 1 and {group_length}.'
+        return out
+    return None
+
+
 class QueueChannel(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -175,15 +188,10 @@ class QueueChannel(commands.Cog):
             return await ctx.send('Invalid Gate Name!')
 
         length = len(queue.groups)
-        if not 1 <= group <= length:
-            out = 'Invalid Group Number. '
-            if length == 0:
-                out += 'No groups available to select!'
-            elif length == 1:
-                out += 'Only one group to select.'
-            else:
-                out += f'Must be between 1 and {length}.'
-            return await ctx.send(out)
+        check = length_check(length, group)
+        if check is not None:
+            return await ctx.send(check)
+
 
         serv = self.bot.get_guild(self.server_id)
         # Take the gate off the list, save to DB & Update Embed
@@ -206,13 +214,57 @@ class QueueChannel(commands.Cog):
     @commands.check_any(has_role('Player'), commands.is_owner())
     async def leave_queue(self, ctx):
         """Takes you out of the current queue, if you are in it."""
-        # TODO: Rewrite Leave Group
+        queue = await queue_from_guild(self.db, ctx.guild)
+
+        group_index = queue.in_queue(ctx.author.id)
+        if group_index is None:
+            return await ctx.send('You are not currently in the queue, so I cannot remove you from it.',
+                                  delete_after=10)
+
+
+        # Pop the Player from the Group and Update!
+        serv = self.bot.get_guild(self.server_id)
+        queue.groups[group_index[0]].players.pop(group_index[1])
+        await queue.update(self.bot, self.db, serv.get_channel(self.channel_id))
+
+        return await ctx.send(f'You have been removed from group #{group_index[0] + 1}', delete_after=10)
 
     @commands.command(name='move')
     @commands.check_any(has_role('Assistant'), commands.is_owner())
     async def move_player(self, ctx, original_group: int, player: discord.Member, new_group: int):
         """Moves a player to a different group. Requires the Assistant role."""
-        # TODO: Rewrite Move Player
+        queue = await queue_from_guild(self.db, ctx.guild)
+
+        group_index = queue.in_queue(ctx.author.id)
+        if group_index is None:
+            return await ctx.send('You are not currently in the queue, so I cannot remove you from it.',
+                                  delete_after=10)
+
+        queue.groups.sort(key=lambda x: x.tier)
+
+        length = len(queue.groups)
+        check = length_check(length, original_group)
+        check_2 = length_check(length, new_group)
+        if check is not None:
+            return await ctx.send(check)
+        elif check_2 is not None:
+            return await ctx.send(check_2)
+
+        # Pop the Player from the old group and place them in the new group
+        serv = self.bot.get_guild(self.server_id)
+        old_group = queue.groups[original_group - 1]
+        old_index = None
+        for i, user in enumerate(old_group.players):
+            if user.member.id == player.id:
+                old_index = i
+                break
+        if old_index is None:
+            return await ctx.send(f'Could not find {player.mention} in Group #{original_group}')
+        old_player = queue.groups[original_group - 1].players.pop(old_index)
+        queue.groups[new_group - 1].players.append(old_player)
+        await queue.update(self.bot, self.db, serv.get_channel(self.channel_id))
+
+        return await ctx.send(f'{player.mention} has been moved from Group #{original_group} to Group #{new_group}')
 
     @commands.command(name='create')
     @commands.check_any(commands.is_owner(), has_role('Assistant'))

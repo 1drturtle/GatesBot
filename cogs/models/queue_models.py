@@ -162,13 +162,13 @@ class Queue:
         embed = self.generate_embed(bot)
         return await channel.send(embed=embed)
 
-    def in_queue(self, member_id):
-        member = None
-        for group in self.groups:
-            for player in group.players:
+    def in_queue(self, member_id) -> tuple:
+        index = None
+        for i, group in enumerate(self.groups):
+            for ii, player in enumerate(group.players):
                 if player.member.id == member_id:
-                    member = player
-        return member
+                    index = (i, ii)
+        return index
 
     def can_fit_in_group(self, player: Player):
         out = None
