@@ -203,7 +203,7 @@ class QueueChannel(commands.Cog):
             else constants.DEBUG_SUMMONS_CHANNEL
 
         summons_ch = serv.get_channel(summons_channel_id)
-        assignments_ch = self.channel_converter.convert(ctx, 'assignments')
+        assignments_ch = await self.channel_converter.convert(ctx, 'assignments')
         if summons_ch is not None:
             msg = ', '.join([p.mention for p in popped.players]) + '\n'
             msg += f'Welcome to the {gate["name"].lower().title()} Gate! Head to {f"<#{assignments_ch.id}>" if assignments_ch is not None else "#assignments"}' \
