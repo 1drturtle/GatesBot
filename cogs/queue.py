@@ -133,7 +133,7 @@ class QueueChannel(commands.Cog):
 
         # Update Queue
         channel = self.bot.get_channel(self.channel_id)
-        new_msg = await queue.update(self.bot, self.db, channel)
+        await queue.update(self.bot, self.db, channel)
 
     @commands.group(name='gates', invoke_without_command=True)
     @commands.check_any(has_role('Admin'), commands.is_owner())
@@ -204,9 +204,10 @@ class QueueChannel(commands.Cog):
 
         summons_ch = serv.get_channel(summons_channel_id)
         assignments_ch = await self.channel_converter.convert(ctx, 'assignments')
+        assignments_str = f"<#{assignments_ch.id}>" if assignments_ch is not None else "#assignments"
         if summons_ch is not None:
             msg = ', '.join([p.mention for p in popped.players]) + '\n'
-            msg += f'Welcome to the {gate["name"].lower().title()} Gate! Head to {f"<#{assignments_ch.id}>" if assignments_ch is not None else "#assignments"}' \
+            msg += f'Welcome to the {gate["name"].lower().title()} Gate! Head to {assignments_str}' \
                    f' and grab the {gate["emoji"]} from the list and head over to the gate!\n' \
                    f'Claimed by {ctx.author.mention}'
             await summons_ch.send(msg, allowed_mentions=discord.AllowedMentions(users=True))
