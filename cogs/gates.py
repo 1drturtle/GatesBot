@@ -13,7 +13,7 @@ class Gates(commands.Cog):
     async def xp_calc(self, ctx, total_xp: int, player_count: int, modifier: float = 1):
         """
         Performs the XP calculations for a gate.
-        Usage `=xpcalc <Total XP> <# of Players> [modifier]`
+        Usage `=dmcalc <Total XP> <# of Players> [modifier]`
         **Requires DM Role**
         """
         xp_player = total_xp // player_count
