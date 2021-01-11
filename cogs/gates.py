@@ -25,7 +25,7 @@ class Gates(commands.Cog):
             xp_dm = xp_player_modified // 3
 
         embed = create_default_embed(ctx)
-        embed.title = 'XP Calcuations'
+        embed.title = 'XP Calculations'
         embed.add_field(name='Total XP',
                         value=f'{total_xp}{" (x"+str(modifier)+")" if modifier != 1 else ""}')
         embed.add_field(name='Number of Players', value=f'{player_count}')
