@@ -27,8 +27,8 @@ class Schedule(commands.Cog):
         while self.running:
             now = pendulum.now('America/New_York')
             next = now + pendulum.duration(minutes=1)
-            next_msg = now.next(pendulum.FRIDAY).at(10)
-            if now.day_of_week == pendulum.FRIDAY and now.hour == 10:
+            next_msg = now.next(pendulum.SUNDAY).at(10)
+            if now.day_of_week == pendulum.SUNDAY and now.hour == 10:
                 channel = self.bot.get_channel(self.channel_id)
                 if channel:
                     log.debug(f'sending message to #{channel.name} at {now.to_day_datetime_string()}. '
