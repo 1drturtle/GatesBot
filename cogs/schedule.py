@@ -19,7 +19,7 @@ class Schedule(commands.Cog):
 
     @commands.Cog.listener(name='on_ready')
     async def ready_listener(self):
-        self.task = asyncio.create_task(self.every_minute())
+        self.task = self.bot.loop.create_task(self.every_minute())
         self.task.add_done_callback(self.task_error)
 
     async def every_minute(self):
@@ -28,18 +28,18 @@ class Schedule(commands.Cog):
             next = now + pendulum.duration(minutes=1)
             next_msg = now.next(pendulum.FRIDAY).at(10)
             log.info(f'it is {now.to_day_datetime_string()}. {self.bot.guilds}')
-            if now.day_of_week == pendulum.FRIDAY and now.hour == 10:
+            if now.day_of_week == pendulum.FRIDAY and now.hour == 17:
                 channel = self.bot.get_channel(self.channel_id)
                 if channel:
-                    log.info(f'sending message to #{channel.name} at {now.to_day_datetime_string()}')
-                    await channel.send('-')
+                    log.debug(f'sending message to #{channel.name} at {now.to_day_datetime_string()}')
+                    # await channel.send('-')
                 else:
                     log.error(f'could not find channel with id {self.channel_id}. skipping message.')
             await discord.utils.sleep_until(next)
 
     def task_error(self, task):
-        if task.exception():
-            task.print_stack()
+        if e := task.exception():
+            raise e
 
 
 def setup(bot):
