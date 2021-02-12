@@ -2,6 +2,7 @@ import discord
 import traceback
 import sys
 from discord.ext import commands
+from datetime import timedelta
 
 import sentry_sdk
 import logging
@@ -45,7 +46,7 @@ class CommandErrorHandler(commands.Cog):
         """
 
         # This prevents any commands with local handlers being handled here in on_command_error.
-        if hasattr(ctx.command, 'on_error'):
+        if hasattr(ctx.command, 'on_error') and getattr(ctx.command, 'no_handle', False):
             return
 
         # This prevents any cogs with an overwritten cog_command_error being handled here.
@@ -92,8 +93,17 @@ class CommandErrorHandler(commands.Cog):
             return await ctx.send(f'Error: {msg}')
 
         elif isinstance(error, commands.CommandOnCooldown):
-            msg = str(error) or "Command On Cooldown"
-            return await ctx.send(f'Error: {msg}')
+            msg = 'Command on Cooldown!'
+            cooldown = timedelta(seconds=int(error.retry_after))
+            mins, seconds = divmod(cooldown.seconds, 60)
+            time = f'{mins} minute{"s" if mins != 1 else ""}' \
+                   f'{" and " if mins > 0 else ", "}{seconds} second{"s" if seconds != 1 else ""}'
+            if ctx.command.parents:
+                msg += f'\n`{ctx.prefix}{ctx.command.full_parent_name} {ctx.command.name}` is on cooldown for ' \
+                       f'{time}'
+            else:
+                msg += f'\n`{ctx.prefix}{ctx.command.name}` is on cooldown for {time}!'
+            return await ctx.send(msg)
 
         elif isinstance(error, discord.Forbidden):
             msg = str(error) or "Forbidden - Not allowed to perform this action."
@@ -102,11 +112,10 @@ class CommandErrorHandler(commands.Cog):
         elif isinstance(error, commands.NoPrivateMessage):
             try:
                 await ctx.author.send(f'{ctx.command} can not be used in Private Messages.')
-            except discord.HTTPException:
+            except:
                 pass
 
         else:
-            # All other Errors not returned come here. And we can just print the default TraceBack.
             self.log_error(error, context=ctx)
             print('Ignoring exception in command {}:'.format(ctx.command), file=sys.stderr)
             traceback.print_exception(type(error), error, error.__traceback__, file=sys.stderr)

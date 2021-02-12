@@ -10,7 +10,7 @@ from discord.ext import commands
 import utils.config as config
 from utils.functions import try_delete
 
-COGS = {'cogs.util', 'jishaku', 'cogs.queue', 'cogs.gates',
+COGS = {'cogs.util', 'jishaku', 'cogs.queue', 'cogs.gates', 'cogs.schedule',
         'cogs.errors', 'cogs.admin', 'cogs.help'}
 
 
@@ -64,13 +64,14 @@ log_formatter = logging.Formatter('%(levelname)s | %(name)s: %(message)s')
 handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(log_formatter)
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG if config.ENVIRONMENT == 'testing' else logging.INFO)
 logger.addHandler(handler)
 log = logging.getLogger('bot')
 
 # Make discord logs a bit quieter
 logging.getLogger('discord.gateway').setLevel(logging.WARNING)
 logging.getLogger('discord.client').setLevel(logging.WARNING)
+logging.getLogger('discord.http').setLevel(logging.INFO)
 
 
 @bot.event
