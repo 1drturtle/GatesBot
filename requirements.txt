@@ -2,6 +2,9 @@
 discord.py
 git+https://github.com/Rapptz/discord-ext-menus
 
+# Time
+pendulum
+
 # Database
 motor==2.3.0
 dnspython==2.0.0

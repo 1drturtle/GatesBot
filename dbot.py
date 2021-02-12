@@ -10,7 +10,7 @@ from discord.ext import commands
 import utils.config as config
 from utils.functions import try_delete
 
-COGS = {'cogs.util', 'jishaku', 'cogs.queue', 'cogs.gates',
+COGS = {'cogs.util', 'jishaku', 'cogs.queue', 'cogs.gates', 'cogs.schedule',
         'cogs.errors', 'cogs.admin', 'cogs.help'}
 
 
