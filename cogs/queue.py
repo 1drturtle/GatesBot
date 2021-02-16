@@ -181,7 +181,7 @@ class QueueChannel(commands.Cog):
 
     @commands.command(name='claim')
     @commands.check_any(has_role('DM'), commands.is_owner())
-    async def claim_group(self, ctx, group: int, gate_name: str):
+    async def claim_group(self, ctx, group: int, gate_name: str, reinforcement: str = ''):
         """Claims a group from the queue."""
         queue = await queue_from_guild(self.db, ctx.guild)
         gate = await self.gate_db.find_one({'name': gate_name.lower()})
@@ -207,9 +207,12 @@ class QueueChannel(commands.Cog):
         assignments_str = f"<#{assignments_ch.id}>" if assignments_ch is not None else "#assignments"
         if summons_ch is not None:
             msg = ', '.join([p.mention for p in popped.players]) + '\n'
-            msg += f'Welcome to the {gate["name"].lower().title()} Gate! Head to {assignments_str}' \
-                   f' and grab the {gate["emoji"]} from the list and head over to the gate!\n' \
-                   f'Claimed by {ctx.author.mention}'
+            if not reinforcement:
+                msg += f'Welcome to the {gate["name"].lower().title()} Gate! Head to {assignments_str}' \
+                       f' and grab the {gate["emoji"]} from the list and head over to the gate!\n' \
+                       f'Claimed by {ctx.author.mention}'
+            else:
+               msg += f'{gate["name"].lower().title()} Gate is in need of reinforcements! Head to {assignments_str} and grab the {gate["emoji"]} from the list and head over to the gate!\nClaimed by {ctx.author.mention}'
             await summons_ch.send(msg, allowed_mentions=discord.AllowedMentions(users=True))
 
     @commands.command(name='leave')
