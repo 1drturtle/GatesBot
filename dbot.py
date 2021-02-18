@@ -42,6 +42,7 @@ class GatesBot(commands.Bot):
 
         self.sentry_url = config.SENTRY_URL
         self.prefixes = dict()
+        self.prefix = config.PREFIX
 
         super(GatesBot, self).__init__(command_prefix, description=desc, **options)
 

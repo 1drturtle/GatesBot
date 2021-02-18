@@ -315,6 +315,32 @@ class QueueChannel(commands.Cog):
         embed.description = '`'*3+'diff\n' + '\n'.join([f'- {player.member.display_name}: {player.level_str}' for player in group.players]) + '\n```'
         return await ctx.send(embed=embed)
 
+    @commands.command(name='creategroup')
+    @commands.check_any(has_role('Assistant'), commands.is_owner())
+    @commands.guild_only()
+    async def create_group(self, ctx, member: discord.Member):
+        """
+        Creates a new group from an existing queue member.
+        `group` is which group to look in and `member` is the mention of who you are moving.
+        """
+        queue = await queue_from_guild(self.db, ctx.guild)
+
+        group_index = queue.in_queue(member.id)
+        if group_index is None:
+            return await ctx.send(f'{member.mention} was not in the queue, so they have not been moved.',
+                                  delete_after=10)
+
+        group: Group = queue.groups[group_index[0]]
+        player = group.players.pop(group_index[1])
+
+        new_group = Group([player], player.tier)
+        queue.groups.insert(group_index[0] + 1, new_group)
+        await queue.update(self.bot, self.db, ctx.guild.get_channel(self.channel_id))
+
+        return await ctx.send(f'{player.mention} has been moved to a new tier {new_group.tier} group!',
+                              delete_after=10)
+
+
 
 def setup(bot):
     bot.add_cog(QueueChannel(bot))
