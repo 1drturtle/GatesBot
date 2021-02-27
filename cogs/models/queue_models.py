@@ -98,7 +98,11 @@ class Group:
 
     @classmethod
     def from_dict(cls, guild: discord.Guild, data: dict):
-        players = [Player.from_dict(guild, item) for item in data['players']]
+        players = []
+        for item in data['players']:
+            player = Player.from_dict(guild, item)
+            if player is not None:
+                players.append(player)
         tier = data['tier']
         pos = data['position']
         return cls(players=players, tier=tier, position=pos)
