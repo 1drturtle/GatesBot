@@ -8,6 +8,7 @@ import utils.constants as constants
 from cogs.models.queue_models import Player, Group, Queue
 from utils.checks import has_role
 from utils.functions import create_default_embed
+from discord.ext import tasks
 
 line_re = re.compile(r'\*\*in line:*\*\*', re.IGNORECASE)
 player_class_regex = re.compile(r'((\w+ )*(\w+) (\d+))')
@@ -82,6 +83,8 @@ class QueueChannel(commands.Cog):
         self.server_id = constants.GATES_SERVER if self.bot.environment != 'testing' else constants.DEBUG_SERVER
         self.channel_id = constants.GATES_CHANNEL if self.bot.environment != 'testing' else constants.DEBUG_CHANNEL
 
+        self.update_bot_status.start()
+
     async def cog_check(self, ctx):
         if not ctx.guild:
             return False
@@ -89,6 +92,9 @@ class QueueChannel(commands.Cog):
             return True
         if ctx.guild.id == constants.DEBUG_SERVER and self.bot.environment == 'testing':
             return True
+
+    def cog_unload(self):
+        self.update_bot_status.cancel()
 
     @commands.Cog.listener(name='on_message')
     async def queue_listener(self, message):
@@ -340,6 +346,23 @@ class QueueChannel(commands.Cog):
         return await ctx.send(f'{player.mention} has been moved to a new tier {new_group.tier} group!',
                               delete_after=10)
 
+    @tasks.loop(minutes=5)
+    async def update_bot_status(self):
+        guild = self.bot.get_guild(self.server_id)
+        if guild is None:
+            return None
+        queue = await queue_from_guild(self.db, guild)
+        if queue is None:
+            return None
+
+        groups = len(queue.groups)
+        status = discord.Activity(name=f'{groups} Queue Groups!', type=discord.ActivityType.watching)
+        await self.bot.change_presence(activity=status)
+
+    @update_bot_status.before_loop
+    async def before_update_bot_status(self):
+        await self.bot.wait_until_ready()
+        log.info('Starting Bot Status Loop')
 
 
 def setup(bot):
