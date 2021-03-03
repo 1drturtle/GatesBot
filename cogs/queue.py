@@ -375,6 +375,10 @@ class QueueChannel(commands.Cog):
 
         await queue.update(self.bot, self.db, ctx.guild.get_channel(self.channel_id))
 
+        return await ctx.send(f'{ctx.author.mention}, the queue has been shuffled!',
+                              allowed_mentions=discord.AllowedMentions(users=True),
+                              delete_after=10)
+
     @tasks.loop(minutes=5)
     async def update_bot_status(self):
         guild = self.bot.get_guild(self.server_id)
