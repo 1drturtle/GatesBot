@@ -69,7 +69,7 @@ class Player:
         out = []
         for level in self.levels:
             out_str = ''
-            out_str += level['subclass']+' ' if level['subclass'] is not None else ''
+            out_str += level['subclass'] + ' ' if level['subclass'] is not None else ''
             out_str += level['class'] + ' ' if level['class'] is not None else '*None*'
             out_str += str(level['level'])
             out.append(out_str)
@@ -93,7 +93,7 @@ class Group:
         }
 
     @classmethod
-    def new(cls, tier, players = None, position = None):
+    def new(cls, tier, players=None, position=None):
         return cls(players=players, tier=tier, position=position)
 
     @classmethod
@@ -170,9 +170,9 @@ class Queue:
         # DB Commit
         data = self.to_dict()
         await db.update_one(
-                            {'guild_id': self.server_id, 'channel_id': self.channel_id},
-                            {'$set': data}, upsert=True
-                            )
+            {'guild_id': self.server_id, 'channel_id': self.channel_id},
+            {'$set': data}, upsert=True
+        )
 
         # Make a new embed
         embed = self.generate_embed(bot)

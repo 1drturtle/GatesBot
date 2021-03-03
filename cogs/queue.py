@@ -1,5 +1,6 @@
 import logging
 import re
+import random
 
 import discord
 from discord.ext import commands
@@ -345,6 +346,34 @@ class QueueChannel(commands.Cog):
 
         return await ctx.send(f'{player.mention} has been moved to a new tier {new_group.tier} group!',
                               delete_after=10)
+
+    @commands.command(name='shuffle')
+    @commands.check_any(has_role('Admin'), commands.is_owner())
+    @commands.guild_only()
+    async def shuffle_groups(self, ctx):
+        """
+        Shuffles the Queue. Warning! This action is __irrevocable__.
+        Requires the Admin role.
+        """
+        queue = await queue_from_guild(self.db, ctx.guild)
+
+        all_players = []
+        for group in queue.groups:
+            all_players.extend(group.players)
+
+        queue.groups = []
+        queue.players = []
+
+        random.shuffle(all_players)
+
+        for player in all_players:
+            if index := queue.can_fit_in_group(player) is not None:
+                queue.groups[index].players.append(player)
+            else:
+                new_group = Group.new(player.tier, [player])
+                queue.groups.append(new_group)
+
+        await queue.update(self.bot, self.db, ctx.guild.get_channel(self.channel_id))
 
     @tasks.loop(minutes=5)
     async def update_bot_status(self):
