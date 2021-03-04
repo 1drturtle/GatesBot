@@ -6,6 +6,7 @@ import discord
 import motor.motor_asyncio
 import sentry_sdk
 from discord.ext import commands
+import asyncio
 
 import utils.config as config
 from utils.functions import try_delete
@@ -36,6 +37,8 @@ class GatesBot(commands.Bot):
         self.ready_time = None
         self._dev_id = config.DEV_ID
         self.environment = config.ENVIRONMENT
+
+        self.loop = asyncio.get_event_loop()
 
         self.mongo_client = motor.motor_asyncio.AsyncIOMotorClient(config.MONGO_URL)
         self.mdb = self.mongo_client[config.MONGO_DB]
