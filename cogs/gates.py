@@ -13,6 +13,7 @@ PLACEHOLDER_POLL_TIME = 300
 
 log = logging.getLogger(__name__)
 
+
 class Gates(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -109,7 +110,7 @@ class Gates(commands.Cog):
         channel = guild.get_channel(placeholder_data['channel_id'])
         message = await channel.fetch_message(placeholder_data['message_id'])
 
-        if '*ph*' not in (content := message.content.lower()) and '*placeholder*' not in content\
+        if '*ph*' not in (content := message.content.lower()) and '*placeholder*' not in content \
                 or message is None:
             # stop if the message is gone or the placeholder is done
             return await self.placeholder_db.delete_one({'message_id': placeholder_data['message_id']})
