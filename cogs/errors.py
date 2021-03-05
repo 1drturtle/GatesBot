@@ -108,6 +108,9 @@ class CommandErrorHandler(commands.Cog):
         elif isinstance(error, discord.Forbidden):
             msg = str(error) or "Forbidden - Not allowed to perform this action."
             return await ctx.send(f'Error: {msg}')
+        elif isinstance(error, commands.BadArgument):
+            msg = str(error) or "Unknown invalid argument."
+            return await ctx.send(f'Error: {msg}')
 
         elif isinstance(error, commands.NoPrivateMessage):
             try:

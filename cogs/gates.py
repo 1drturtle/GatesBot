@@ -18,6 +18,7 @@ class Gates(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.placeholder_db = bot.mdb['placeholder_events']
+        self.settings_db = bot.mdb['placeholder-settings']
         self.server_id = constants.GATES_SERVER if self.bot.environment != 'testing' else constants.DEBUG_SERVER
         self.db_task = self.check_db_placeholders.start()
 
@@ -94,18 +95,25 @@ class Gates(commands.Cog):
         utc_now = datetime.datetime.utcnow()
         log.debug('running placeholder loop!')
         for document in await cursor.to_list(length=None):
-            if ((document['message_date'] + datetime.timedelta(hours=1)) - utc_now).seconds <= (15 * 60):  # ten minutes
+            setting = await self.settings_db.find_one({'user_id': document["author_id"]})
+            if setting is None:
+                setting = 1
+            else:
+                setting = setting['hours']
+
+            if ((document['message_date'] + datetime.timedelta(hours=setting)) - utc_now).seconds <= (15 * 60):  # ten minutes
                 log.info(f'scheduling placeholder for {document["_id"]}')
-                self.bot.loop.create_task(self.run_placeholder_reminder(document))
+                self.bot.loop.create_task(self.run_placeholder_reminder(document, setting))
                 await self.placeholder_db.delete_one({'message_id': document['message_id']})
 
-    async def run_placeholder_reminder(self, placeholder_data: dict):
+    async def run_placeholder_reminder(self, placeholder_data: dict, hours: int = 1):
         """
         Takes the data from the databases and waits until message date + 1 hour, and then sends them a DM
         :param dict placeholder_data: Data to run the reminder, fetched from the database.
+        :param int hours: Number of hours to wait after message before a PM is sent.
         """
         # wait until an hour has passed from the original message
-        future = placeholder_data['message_date'] + datetime.timedelta(hours=1)
+        future = placeholder_data['message_date'] + datetime.timedelta(hours=hours)
         await discord.utils.sleep_until(future)
         log.info(f'running placeholder for {placeholder_data["_id"]}')
         # get data from bot
@@ -123,8 +131,11 @@ class Gates(commands.Cog):
         ctx = ContextProxy(message, self.bot, member)
 
         try:
+            hour_str = f'{hours} hours'
+            if hours == 1:
+                hour_str = '1 hour'
             embed = create_default_embed(ctx, title='Placeholder Reminder!')
-            embed.description = f'You sent a placeholder in {channel.mention} that hasn\'t been updated in an hour!\n' \
+            embed.description = f'You sent a placeholder in {channel.mention} that hasn\'t been updated in {hour_str}!\n' \
                                 f'[Here\'s a link to the message]({message.jump_url})\n'
             return await member.send(embed=embed)
         except Exception:
@@ -133,6 +144,35 @@ class Gates(commands.Cog):
     @check_db_placeholders.before_loop
     async def before_check_db_placeholders(self):
         await self.bot.wait_until_ready()
+
+    @commands.command(name='updatetime')
+    async def placeholder_update_setting(self, ctx, hours: int = None):
+        """
+        Sets the amount of hours to wait before sending a placeholder notification. If no argument is specified, shows the current setting.
+
+        `hours` - Number of hours to wait. Must be greater than or equal to one.
+        """
+        embed = create_default_embed(ctx)
+        if hours is None:
+            embed.title = 'Current Placeholder Setting'
+            db_result = await self.settings_db.find_one({'user_id': ctx.author.id})
+            if db_result is None:
+                db_result = 1
+            else:
+                db_result = db_result['hours']
+            embed.description = f'The current setting is to send a reminder after {db_result} hour' \
+                                f'{"s" if db_result != 1 else ""}.'
+            return await ctx.send(embed=embed)
+
+        if hours < 1:
+            raise commands.BadArgument("`hours` must be greater or equal to one.")
+
+        await self.settings_db.update_one({'user_id': ctx.author.id}, {'$set': {'hours': hours}}, upsert=True)
+        embed.title = 'Placeholder settings updated!'
+        embed.description = f'The current setting is now to send a reminder after {hours} hour' \
+                            f'{"s" if hours != 1 else ""}.'
+
+        return await ctx.send(embed=embed)
 
 
 def setup(bot):
