@@ -92,8 +92,10 @@ class Gates(commands.Cog):
         """
         cursor = self.placeholder_db.find().sort('message_date')
         utc_now = datetime.datetime.utcnow()
+        log.debug('running placeholder loop!')
         for document in await cursor.to_list(length=None):
-            if (document['message_date'] - utc_now).seconds >= (10 * 60):  # ten minutes
+            if ((document['message_date'] + datetime.timedelta(hours=1)) - utc_now).seconds <= (15 * 60):  # ten minutes
+                log.info(f'scheduling placeholder for {document["_id"]}')
                 self.bot.loop.create_task(self.run_placeholder_reminder(document))
                 await self.placeholder_db.delete_one({'message_id': document['message_id']})
 
@@ -105,6 +107,7 @@ class Gates(commands.Cog):
         # wait until an hour has passed from the original message
         future = placeholder_data['message_date'] + datetime.timedelta(hours=1)
         await discord.utils.sleep_until(future)
+        log.info(f'running placeholder for {placeholder_data["_id"]}')
         # get data from bot
         guild = self.bot.get_guild(placeholder_data['guild_id'])
         member = guild.get_member(placeholder_data['author_id'])
