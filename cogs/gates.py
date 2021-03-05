@@ -95,6 +95,7 @@ class Gates(commands.Cog):
         for document in await cursor.to_list(length=None):
             if (document['message_date'] - utc_now).seconds >= (10 * 60):  # ten minutes
                 self.bot.loop.create_task(self.run_placeholder_reminder(document))
+                await self.placeholder_db.delete_one({'message_id': placeholder_data['message_id']})
 
     async def run_placeholder_reminder(self, placeholder_data: dict):
         """
@@ -113,7 +114,7 @@ class Gates(commands.Cog):
         if '*ph*' not in (content := message.content.lower()) and '*placeholder*' not in content \
                 or message is None:
             # stop if the message is gone or the placeholder is done
-            return await self.placeholder_db.delete_one({'message_id': placeholder_data['message_id']})
+            return None
 
         ContextProxy = namedtuple('ContextProxy', ['message', 'bot', 'author'])
         ctx = ContextProxy(message, self.bot, member)
@@ -122,7 +123,6 @@ class Gates(commands.Cog):
             embed = create_default_embed(ctx, title='Placeholder Reminder!')
             embed.description = f'You sent a placeholder in {channel.mention} that hasn\'t been updated in an hour!\n' \
                                 f'[Here\'s a link to the message]({message.jump_url})\n'
-            await self.placeholder_db.delete_one({'message_id': placeholder_data['message_id']})
             return await member.send(embed=embed)
         except Exception:
             log.debug(f'Could not send placeholder reminder to {member.name}')
