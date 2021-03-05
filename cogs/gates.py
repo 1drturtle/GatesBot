@@ -95,7 +95,7 @@ class Gates(commands.Cog):
         for document in await cursor.to_list(length=None):
             if (document['message_date'] - utc_now).seconds >= (10 * 60):  # ten minutes
                 self.bot.loop.create_task(self.run_placeholder_reminder(document))
-                await self.placeholder_db.delete_one({'message_id': placeholder_data['message_id']})
+                await self.placeholder_db.delete_one({'message_id': document['message_id']})
 
     async def run_placeholder_reminder(self, placeholder_data: dict):
         """
