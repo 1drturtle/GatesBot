@@ -10,6 +10,9 @@ from cogs.models.queue_models import Player, Group, Queue
 from utils.checks import has_role
 from utils.functions import create_default_embed
 from discord.ext import tasks
+import datetime
+import pendulum
+import collections
 
 line_re = re.compile(r'\*\*in line:*\*\*', re.IGNORECASE)
 player_class_regex = re.compile(r'((\w+ )*(\w+) (\d+))')
@@ -80,6 +83,7 @@ class QueueChannel(commands.Cog):
         self.channel_converter = commands.TextChannelConverter()
         self.db = bot.mdb['player_queue']
         self.gate_db = bot.mdb['gate_list']
+        self.emoji_db = bot.mdb['emoji_ranking']
 
         self.server_id = constants.GATES_SERVER if self.bot.environment != 'testing' else constants.DEBUG_SERVER
         self.channel_id = constants.GATES_CHANNEL if self.bot.environment != 'testing' else constants.DEBUG_CHANNEL
@@ -141,6 +145,87 @@ class QueueChannel(commands.Cog):
         # Update Queue
         channel = self.bot.get_channel(self.channel_id)
         await queue.update(self.bot, self.db, channel)
+
+    @commands.Cog.listener(name='on_raw_reaction_add')
+    async def queue_emoji_listener(self, payload):
+
+        if not payload.guild_id == self.server_id and payload.channel_id == self.channel_id:
+            return
+
+        if payload.event_type != 'REACTION_ADD':
+            return
+
+        guild = self.bot.get_guild(payload.guild_id)
+        channel = guild.get_channel(payload.channel_id)
+        message = await channel.fetch_message(payload.message_id)
+
+        if not message.author.id == self.bot.user.id:
+            return
+
+        prev_data = await self.emoji_db.find_one({'reacter_id': payload.member.id})
+        if prev_data is not None:
+            if prev_data['message_id'] == message.id:
+                return
+            data = {
+                '$set': {
+                    'message_id': message.id,
+                    'emoji_id': payload.emoji.id
+                },
+                '$currentDate': {
+                    'last_reacted': True
+                },
+                '$inc': {
+                    'reaction_count': 1
+                }
+            }
+            await self.emoji_db.update_one(
+                {'reacter_id': payload.member.id},
+                data,
+                upsert=True
+            )
+        else:
+            await self.emoji_db.insert_one(
+                {
+                    'reacter_id': payload.member.id,
+                    'message_id': message.id,
+                    'emoji_id': payload.emoji.id,
+                    'last_reacted': datetime.datetime.now(),
+                    'reaction_count': 1
+                }
+            )
+
+    @commands.group(name='emojis', aliases=['emoji'], invoke_without_command=True)
+    async def emoji_personal(self, ctx, who: discord.Member = None):
+        """
+        Gets your emoji leaderboard stats!
+        `who` - Optional, someone to look up. Defaults to yourself!
+        """
+        embed = create_default_embed(ctx)
+        who = who or ctx.author
+        data = await self.emoji_db.find_one({'reacter_id': who.id})
+        if not data:
+            embed.title = 'No Data Found!'
+            embed.description = f'I could not find any emoji data for {who.mention}'
+            return await ctx.send(embed=embed)
+        embed.title = f'Emoji Data for {who.display_name}'
+        embed.add_field(name='# of reactions', value=f'{data["reaction_count"]} reactions.')
+        dt = pendulum.now() - pendulum.instance(data["last_reacted"])
+        embed.add_field(name='Last Reaction', value=f'{dt.in_words()} ago.')
+
+        return await ctx.send(embed=embed)
+
+    @emoji_personal.command(name='top', aliases=['leaderboard', 'list'])
+    async def emoji_top(self, ctx):
+        """
+        Gets the top 10 Emoji members.
+        """
+        embed = create_default_embed(ctx)
+        data = await self.emoji_db.find().to_list(length=None)
+        users = sorted(data, key=lambda x: x['reaction_count'], reverse=True)
+        out = '\n'.join([f'- <@{u["reacter_id"]}>: `{u["reaction_count"]}`' for u in users[:10]])
+        embed.title = 'Queue Emoji Leaderboard'
+        embed.description = out
+        await ctx.send(embed=embed)
 
     @commands.group(name='gates', invoke_without_command=True)
     @commands.check_any(has_role('Admin'), commands.is_owner())
