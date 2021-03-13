@@ -33,7 +33,7 @@ class Schedule(commands.Cog):
                 if channel:
                     log.debug(f'sending message to #{channel.name} at {now.to_day_datetime_string()}. '
                               f'next at {next_msg.to_day_datetime_string()}')
-                    await channel.send('<@&773895151008874518>, Please restock the Scrolls via `!scroll`!',
+                    await channel.send('<@&773895151008874518> - don\'t forget to restock tattoos and scrolls via !scroll and !tattoo!',
                                        allowed_mentions=discord.AllowedMentions(roles=True))
                 else:
                     log.error(f'could not find channel with id {self.channel_id}. skipping message.')
