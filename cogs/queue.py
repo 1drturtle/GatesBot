@@ -82,6 +82,7 @@ class QueueChannel(commands.Cog):
         self.member_converter = commands.MemberConverter()
         self.channel_converter = commands.TextChannelConverter()
         self.db = bot.mdb['player_queue']
+        self.data_db = bot.mdb['queue_analytics']
         self.gate_db = bot.mdb['gate_list']
         self.emoji_db = bot.mdb['emoji_ranking']
 
@@ -141,6 +142,25 @@ class QueueChannel(commands.Cog):
         else:
             new_group = Group.new(player.tier, [player])
             queue.groups.append(new_group)
+
+        # update analytics
+        data = {
+            '$set': {
+                'user_id': message.author.id
+            },
+            '$currentDate': {
+                'last_gate_signup': True
+            },
+            '$inc': {
+                'gate_signup_count': 1
+            }
+        }
+
+        await self.data_db.update_one(
+            {'user_id': message.author.id},
+            data,
+            upsert=True
+        )
 
         # Update Queue
         channel = self.bot.get_channel(self.channel_id)
@@ -293,6 +313,27 @@ class QueueChannel(commands.Cog):
         # Spit out a summons to #gate-summons
         summons_channel_id = constants.SUMMONS_CHANNEL if self.bot.environment != 'testing' \
             else constants.DEBUG_SUMMONS_CHANNEL
+
+        # update analytics
+        for player in popped.players:
+            analytics_data = {
+                '$set': {
+                    'user_id': player.member.id,
+                    'last_gate_name': gate["name"]
+                },
+                '$currentDate': {
+                    'last_gate_summoned': True
+                },
+                '$inc': {
+                    f'gates_summoned_per_level.{str(player.total_level)}': 1,
+                    'gate_summon_count': 1
+                }
+            }
+            await self.data_db.update_one(
+                {'user_id': player.member.id},
+                analytics_data,
+                upsert=True
+            )
 
         summons_ch = serv.get_channel(summons_channel_id)
         assignments_ch = await self.channel_converter.convert(ctx, 'assignments')
