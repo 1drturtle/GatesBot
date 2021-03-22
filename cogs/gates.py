@@ -3,6 +3,7 @@ from discord.ext import tasks
 import discord
 import datetime
 import logging
+import pendulum
 
 from collections import namedtuple
 from utils.functions import create_default_embed
@@ -171,6 +172,53 @@ class Gates(commands.Cog):
         embed.title = 'Placeholder settings updated!'
         embed.description = f'The current setting is now to send a reminder after {hours} hour' \
                             f'{"s" if hours != 1 else ""}.'
+
+        return await ctx.send(embed=embed)
+
+    @commands.command(name='playerstats')
+    async def queue_playerstats(self, ctx, who: discord.Member = None):
+        """
+        Shows your data for the Queue.
+
+        `who` - (Optional) Who's data to show if not for you.
+        """
+        embed = create_default_embed(ctx)
+
+        if not who:
+            who = ctx.author
+
+        data = await self.bot.mdb['queue_analytics'].find_one({'user_id': who.id})
+        if data is None:
+            raise commands.BadArgument(f'Could not find any data for {who.display_name}!')
+
+        embed.title = f'Queue Data - {who.display_name}'
+        now = pendulum.now(tz=pendulum.tz.UTC)
+        if 'last_gate_name' in data:
+            last_summoned = pendulum.instance(data['last_gate_summoned'])
+
+            embed.add_field(
+                name='Last Gate Summoned',
+                value=f'**Last Gate:** {data["last_gate_name"].title()}\n'
+                      f'**Date (UTC):** {last_summoned.to_day_datetime_string()} '
+                      f'({(now - last_summoned).in_words()} ago)'
+            )
+
+        embed.add_field(
+            name='Other Stats',
+            value=f'**Gate Signup Count:** {data["gate_signup_count"]}\n'
+                  f'**Gate Summon Count:** {data.get("gate_summon_count", "*None*")}\n'
+        )
+
+        if 'gates_summoned_per_level' in data:
+            out = ['```diff']
+            for k, v in data['gates_summoned_per_level'].items():
+                out.append(f'+ Level {k}: {v} gate{"s" if v != 1 else ""}')
+            out.append('```')
+            embed.add_field(
+                name='Gates Per Player Level (Summoned)',
+                value='\n'.join(out),
+                inline=False
+            )
 
         return await ctx.send(embed=embed)
 
