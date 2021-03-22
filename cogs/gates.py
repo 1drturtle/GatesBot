@@ -205,7 +205,7 @@ class Gates(commands.Cog):
 
         embed.add_field(
             name='Other Stats',
-            value=f'**Gate Signup Count:** {data["gate_signup_count"]}\n'
+            value=f'**Gate Signup Count:** {data.get("gate_signup_count", "*None*")}\n'
                   f'**Gate Summon Count:** {data.get("gate_summon_count", "*None*")}\n'
         )
 
