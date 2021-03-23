@@ -63,8 +63,11 @@ class Gates(commands.Cog):
         if not message.guild.id == self.server_id:
             return
 
+        # get the member
+        member = message.guild.get_member(message.author.id)
+
         # stop if they don't have the role
-        if not discord.utils.find(lambda r: r.name == 'Placeholder Notifications', message.author.roles):
+        if not discord.utils.find(lambda r: r.name == 'Placeholder Notifications', member.roles):
             return
 
         # stop if the channel is wrong
