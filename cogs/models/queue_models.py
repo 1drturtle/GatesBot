@@ -196,5 +196,9 @@ class Queue:
                 break
         return out
 
+    @property
+    def player_count(self):
+        return sum([len(g.players) for g in self.groups])
+
     def __repr__(self):
         return f'<Queue {self.groups=}, {self.server_id=}, {self.channel_id=}>'
