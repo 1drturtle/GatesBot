@@ -6,6 +6,7 @@ from discord.ext import commands
 import discord
 
 from utils.functions import create_default_embed
+from utils.constants import DATE_FORMAT
 
 
 def time_to_readable(delta_uptime):
@@ -136,6 +137,40 @@ class Utility(commands.Cog):
         embed.title = f'Escaped Markdown for Message with ID `{message_id}`'
         embed.description = discord.utils.escape_markdown(message.content)
         await ctx.send(embed=embed)
+
+    @commands.command(name='servinfo', aliases=['sinfo'])
+    @commands.guild_only()
+    async def server_info(self, ctx):
+        """
+        Displays information about the current server.
+        """
+        embed = create_default_embed(ctx)
+        guild = ctx.guild
+        embed.title = f'{guild.name} - Server Information'
+        general_info = f'**ID:** {guild.id}\n' \
+                       f'**Owner:** {guild.owner.mention}\n' \
+                       f'Created: {guild.created_at.strftime(DATE_FORMAT)}'
+        embed.add_field(name='General Info', value=general_info, inline=False)
+        emoji_x = 0
+        emojis = []
+        for emoji in guild.emojis:
+            emoji_x += 1
+            if emoji_x >= 10:
+                break
+            emojis.append(emoji)
+        emoji_info = f'{len(guild.emojis)} emoji{"s" if len(guild.emojis) != 1 else ""}\n' \
+                     f'{",".join([str(e) for e in emojis])} {"..." if emoji_x >= 10 else ""}'
+        embed.add_field(name='Emojis', value=emoji_info, inline=False)
+        bots = [member for member in guild.members if member.bot]
+        member_stats = f'{guild.member_count - len(bots)} members ({len(bots)} bots)'
+        embed.add_field(name='Member Info', value=member_stats)
+        channels = f'{len([c for c in guild.categories])} categories, ' \
+                   f'{len([c for c in guild.channels if isinstance(c, discord.TextChannel)])} text channels, ' \
+                   f'{len([c for c in guild.channels if isinstance(c, discord.VoiceChannel)])} voice channels.'
+        embed.add_field(name='Channel Info', value=channels)
+        embed.set_thumbnail(url=str(guild.icon_url))
+
+        return await ctx.send(embed=embed, allowed_mentions=None)
 
 
 def setup(bot):
