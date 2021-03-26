@@ -1,0 +1,9 @@
+version: '3'
+
+services:
+  bot:
+    image: gatesbot
+    build:
+      context: .
+    env_file:
+      - .env
