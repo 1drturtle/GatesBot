@@ -1,18 +1,17 @@
+import datetime
 import logging
-import re
 import random
+import re
 
 import discord
+import pendulum
 from discord.ext import commands
+from discord.ext import tasks
 
 import utils.constants as constants
 from cogs.models.queue_models import Player, Group, Queue
 from utils.checks import has_role
 from utils.functions import create_default_embed
-from discord.ext import tasks
-import datetime
-import pendulum
-import collections
 
 line_re = re.compile(r'\*\*in line:*\*\*', re.IGNORECASE)
 player_class_regex = re.compile(r'((\w+ )*(\w+) (\d+))')
@@ -182,6 +181,10 @@ class QueueChannel(commands.Cog):
         if not message.author.id == self.bot.user.id:
             return
 
+        if payload.member.id == self.bot.user.id:
+            # if somehow the bot reacts to it's own message, let's not
+            return
+
         prev_data = await self.emoji_db.find_one({'reacter_id': payload.member.id})
         if prev_data is not None:
             if prev_data['message_id'] == message.id:
@@ -213,39 +216,6 @@ class QueueChannel(commands.Cog):
                     'reaction_count': 1
                 }
             )
-
-    @commands.group(name='emojis', aliases=['emoji'], invoke_without_command=True)
-    async def emoji_personal(self, ctx, who: discord.Member = None):
-        """
-        Gets your emoji leaderboard stats!
-        `who` - Optional, someone to look up. Defaults to yourself!
-        """
-        embed = create_default_embed(ctx)
-        who = who or ctx.author
-        data = await self.emoji_db.find_one({'reacter_id': who.id})
-        if not data:
-            embed.title = 'No Data Found!'
-            embed.description = f'I could not find any emoji data for {who.mention}'
-            return await ctx.send(embed=embed)
-        embed.title = f'Emoji Data for {who.display_name}'
-        embed.add_field(name='# of reactions', value=f'{data["reaction_count"]} reactions.')
-        dt = pendulum.now() - pendulum.instance(data["last_reacted"])
-        embed.add_field(name='Last Reaction', value=f'{dt.in_words()} ago.')
-
-        return await ctx.send(embed=embed)
-
-    @emoji_personal.command(name='top', aliases=['leaderboard', 'list'])
-    async def emoji_top(self, ctx):
-        """
-        Gets the top 10 Emoji members.
-        """
-        embed = create_default_embed(ctx)
-        data = await self.emoji_db.find().to_list(length=None)
-        users = sorted(data, key=lambda x: x['reaction_count'], reverse=True)
-        out = '\n'.join([f'- <@{u["reacter_id"]}>: `{u["reaction_count"]}`' for u in users[:10]])
-        embed.title = 'Queue Emoji Leaderboard'
-        embed.description = out
-        await ctx.send(embed=embed)
 
     @commands.group(name='gates', invoke_without_command=True)
     @commands.check_any(has_role('Admin'), commands.is_owner())
@@ -345,7 +315,9 @@ class QueueChannel(commands.Cog):
                        f' and grab the {gate["emoji"]} from the list and head over to the gate!\n' \
                        f'Claimed by {ctx.author.mention}'
             else:
-               msg += f'{gate["name"].lower().title()} Gate is in need of reinforcements! Head to {assignments_str} and grab the {gate["emoji"]} from the list and head over to the gate!\nClaimed by {ctx.author.mention}'
+                msg += f'{gate["name"].lower().title()} Gate is in need of reinforcements! Head to {assignments_str}' \
+                       f' and grab the {gate["emoji"]} from the list and head over to the gate!\n' \
+                       f'Claimed by {ctx.author.mention}'
             await summons_ch.send(msg, allowed_mentions=discord.AllowedMentions(users=True))
 
     @commands.command(name='leave')
@@ -445,7 +417,9 @@ class QueueChannel(commands.Cog):
 
         embed = create_default_embed(ctx)
         embed.title = f'Information for Group #{group_number}'
-        embed.description = '`'*3+'diff\n' + '\n'.join([f'- {player.member.display_name}: {player.level_str}' for player in group.players]) + '\n```'
+        embed.description = '`' * 3 + 'diff\n' + '\n'.join([f'- {player.member.display_name}:'
+                                                            f' {player.level_str}' for player in
+                                                            group.players]) + '\n```'
         return await ctx.send(embed=embed)
 
     @commands.command(name='creategroup')
@@ -522,6 +496,112 @@ class QueueChannel(commands.Cog):
     async def before_update_bot_status(self):
         await self.bot.wait_until_ready()
         log.info('Starting Bot Status Loop')
+
+    @commands.group(name='stats', invoke_without_command=True)
+    async def stats(self, ctx):
+        """
+        Base command for GatesBot stats.
+        This command by itself will show stats about the current Queue.
+        """
+        queue = await queue_from_guild(self.db, ctx.guild)
+        if queue is None:
+            return None
+
+        group_len = len(queue.groups)
+
+        embed = create_default_embed(ctx)
+        embed.title = 'Current Queue Stats'
+        embed.add_field(name='In Queue', value=f'{group_len} group{"s" if group_len != 1 else ""}\n'
+                                               f'{queue.player_count} player{"s" if queue.player_count != 1 else ""}')
+        groups = {}
+        for group in queue.groups:
+            groups[group.tier] = groups.get(group.tier, 0) + 1
+        group_str = '\n'.join(
+            f'**Tier {tier}**: {amt} group{"s" if amt != 1 else ""}' for tier, amt in groups.items()
+        )
+        embed.add_field(name='Group Stats', value=group_str)
+
+        return await ctx.send(embed=embed)
+
+    @stats.group(name='emojis', aliases=['emoji'], invoke_without_command=True)
+    async def emoji_personal(self, ctx, who: discord.Member = None):
+        """
+        Gets your emoji leaderboard stats!
+        `who` - Optional, someone to look up. Defaults to yourself!
+        """
+        embed = create_default_embed(ctx)
+        who = who or ctx.author
+        data = await self.emoji_db.find_one({'reacter_id': who.id})
+        if not data:
+            embed.title = 'No Data Found!'
+            embed.description = f'I could not find any emoji data for {who.mention}'
+            return await ctx.send(embed=embed)
+        embed.title = f'Emoji Data for {who.display_name}'
+        embed.add_field(name='# of reactions', value=f'{data["reaction_count"]} reactions.')
+        dt = pendulum.now() - pendulum.instance(data["last_reacted"])
+        embed.add_field(name='Last Reaction', value=f'{dt.in_words()} ago.')
+
+        return await ctx.send(embed=embed)
+
+    @emoji_personal.command(name='top', aliases=['leaderboard', 'list'])
+    async def emoji_top(self, ctx):
+        """
+        Gets the top 10 Emoji members.
+        """
+        embed = create_default_embed(ctx)
+        data = await self.emoji_db.find().to_list(length=None)
+        users = sorted(data, key=lambda x: x['reaction_count'], reverse=True)
+        out = '\n'.join([f'- <@{u["reacter_id"]}>: `{u["reaction_count"]}`' for u in users[:10]])
+        embed.title = 'Queue Emoji Leaderboard'
+        embed.description = out
+        await ctx.send(embed=embed)
+
+    @stats.command(name='player')
+    async def queue_playerstats(self, ctx, who: discord.Member = None):
+        """
+        Shows your data for the Queue.
+
+        `who` - (Optional) Who's data to show if not for you.
+        """
+        embed = create_default_embed(ctx)
+
+        if not who:
+            who = ctx.author
+
+        data = await self.bot.mdb['queue_analytics'].find_one({'user_id': who.id})
+        if data is None:
+            raise commands.BadArgument(f'Could not find any data for {who.display_name}!')
+
+        embed.title = f'Queue Data - {who.display_name}'
+        now = pendulum.now(tz=pendulum.tz.UTC)
+        if 'last_gate_name' in data:
+            last_summoned = pendulum.instance(data['last_gate_summoned'])
+
+            embed.add_field(
+                name='Last Gate Summoned',
+                value=f'**Last Gate:** {data["last_gate_name"].title()}\n'
+                      f'**Date (UTC):** {last_summoned.to_day_datetime_string()} '
+                      f'({(now - last_summoned).in_words()} ago)'
+            )
+
+        embed.add_field(
+            name='Other Stats',
+            value=f'**Gate Signup Count:** {data.get("gate_signup_count", "*None*")}\n'
+                  f'**Gate Summon Count:** {data.get("gate_summon_count", "*None*")}\n'
+        )
+
+        if 'gates_summoned_per_level' in data:
+            out = ['```diff']
+            for k, v in data['gates_summoned_per_level'].items():
+                out.append(f'+ Level {k}: {v} gate{"s" if v != 1 else ""}')
+            out.append('```')
+            embed.add_field(
+                name='Gates Per Player Level (Summoned)',
+                value='\n'.join(out),
+                inline=False
+            )
+
+        return await ctx.send(embed=embed)
 
 
 def setup(bot):

@@ -45,7 +45,7 @@ class Utility(commands.Cog):
                             value=f'{time_to_readable(datetime.utcnow() - self.bot.ready_time)}')
         return await ctx.send(embed=embed)
 
-    @commands.command(name='info', aliases=['stats', 'about'])
+    @commands.command(name='info', aliases=['about'])
     async def info(self, ctx):
         """
         Displays some information about the bot.
