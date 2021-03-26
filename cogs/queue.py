@@ -82,6 +82,7 @@ class QueueChannel(commands.Cog):
         self.channel_converter = commands.TextChannelConverter()
         self.db = bot.mdb['player_queue']
         self.data_db = bot.mdb['queue_analytics']
+        self.server_data_db = bot.mdb['gate_groups_analytics']
         self.gate_db = bot.mdb['gate_list']
         self.emoji_db = bot.mdb['emoji_ranking']
 
@@ -285,6 +286,17 @@ class QueueChannel(commands.Cog):
             else constants.DEBUG_SUMMONS_CHANNEL
 
         # update analytics
+
+        # overview
+        gate_analytics_data = {
+            'gate_name': gate['name'],
+            'date_summoned': datetime.datetime.utcnow(),
+            'dm_id': ctx.author.id,
+            'tier': popped.tier,
+            'levels': {}
+        }
+
+        # player
         for player in popped.players:
             analytics_data = {
                 '$set': {
@@ -299,14 +311,20 @@ class QueueChannel(commands.Cog):
                     'gate_summon_count': 1
                 }
             }
+            gate_analytics_data['levels'] = gate_analytics_data['levels'].get(player.total_level, 0) + 1
             await self.data_db.update_one(
                 {'user_id': player.member.id},
                 analytics_data,
                 upsert=True
             )
 
+        await self.server_data_db.insert_one(gate_analytics_data)
+
         summons_ch = serv.get_channel(summons_channel_id)
-        assignments_ch = await self.channel_converter.convert(ctx, 'assignments')
+        try:
+            assignments_ch = await self.channel_converter.convert(ctx, 'assignments')
+        except discord.NotFound:
+            assignments_ch = None
         assignments_str = f"<#{assignments_ch.id}>" if assignments_ch is not None else "#assignments"
         if summons_ch is not None:
             msg = ', '.join([p.mention for p in popped.players]) + '\n'
