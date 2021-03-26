@@ -16,6 +16,9 @@ class CommandErrorHandler(commands.Cog):
         self.bot = bot
 
     def log_error(self, error=None, context=None):
+        log.error('Ignoring exception in command {}:'.format(context.command if context else "unknown"))
+        log.error(''.join(traceback.format_exception(type(error), error, error.__traceback__)))
+
         # https://github.com/avrae/avrae/blob/master/dbot.py#L114
         if self.bot.sentry_url is None:
             log.warning('SENTRY Error Handling is not setup.')
@@ -120,8 +123,6 @@ class CommandErrorHandler(commands.Cog):
 
         else:
             self.log_error(error, context=ctx)
-            print('Ignoring exception in command {}:'.format(ctx.command), file=sys.stderr)
-            traceback.print_exception(type(error), error, error.__traceback__, file=sys.stderr)
 
 
 def setup(bot):
