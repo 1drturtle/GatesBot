@@ -311,8 +311,8 @@ class QueueChannel(commands.Cog):
                     'gate_summon_count': 1
                 }
             }
-            gate_analytics_data['levels'][player.total_level] = gate_analytics_data['levels']\
-                                                                    .get(player.total_level, 0) + 1
+            gate_analytics_data['levels'][str(player.total_level)] = int(gate_analytics_data['levels']
+                                                                         .get(str(player.total_level), '0')) + 1
             await self.data_db.update_one(
                 {'user_id': player.member.id},
                 analytics_data,
