@@ -469,19 +469,20 @@ class QueueChannel(commands.Cog):
     @commands.command(name='shuffle')
     @commands.check_any(has_role('Admin'), commands.is_owner())
     @commands.guild_only()
-    async def shuffle_groups(self, ctx):
+    async def shuffle_groups(self, ctx, tier: int):
         """
         Shuffles the Queue. Warning! This action is __irrevocable__.
         Requires the Admin role.
+
+        `tier` - What tier to shuffle.
         """
         queue = await queue_from_guild(self.db, ctx.guild)
 
         all_players = []
-        for group in queue.groups:
-            all_players.extend(group.players)
-
-        queue.groups = []
-        queue.players = []
+        for i, group in enumerate(queue.groups):
+            if group.tier == tier:
+                queue.groups.pop(i)
+                all_players.extend(group.players)
 
         random.shuffle(all_players)
 
