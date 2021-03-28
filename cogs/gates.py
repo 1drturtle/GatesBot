@@ -41,6 +41,9 @@ class Gates(commands.Cog):
 
         # get the member
         member = message.guild.get_member(message.author.id)
+        if member is None:
+            log.info(f'could not find member info for user {message.author.name}#{message.author.discriminator}')
+            return
 
         # stop if they don't have the role
         if not discord.utils.find(lambda r: r.name == 'Placeholder Notifications', member.roles):
