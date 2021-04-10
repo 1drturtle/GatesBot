@@ -20,13 +20,12 @@ class Schedule(commands.Cog):
 
     @commands.Cog.listener(name='on_ready')
     async def ready_listener(self):
-        self.task = self.bot.loop.create_task(self.every_minute())
+        self.task = self.bot.loop.create_task(self.sunday_reminder())
         self.task.add_done_callback(self.task_error)
 
-    async def every_minute(self):
+    async def sunday_reminder(self):
         while self.running:
             now = pendulum.now('America/New_York')
-            next = now + pendulum.duration(minutes=1)
             next_msg = now.next(pendulum.SUNDAY).at(10)
             if now.day_of_week == pendulum.SUNDAY and now.hour == 10:
                 channel = self.bot.get_channel(self.channel_id)

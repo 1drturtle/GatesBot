@@ -13,3 +13,6 @@ dnspython==2.0.0
 sentry-sdk==0.19.2
 psutil
 jishaku
+
+# other
+tabulate

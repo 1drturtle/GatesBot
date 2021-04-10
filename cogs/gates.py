@@ -9,6 +9,8 @@ from collections import namedtuple
 from utils.functions import create_default_embed
 from utils.checks import has_role
 from utils import constants as constants
+import typing
+from tabulate import tabulate
 
 PLACEHOLDER_POLL_TIME = 300
 
@@ -20,6 +22,7 @@ class Gates(commands.Cog):
         self.bot = bot
         self.placeholder_db = bot.mdb['placeholder_events']
         self.settings_db = bot.mdb['placeholder-settings']
+        self.active_db = bot.mdb['active_users']
         self.server_id = constants.GATES_SERVER if self.bot.environment != 'testing' else constants.DEBUG_SERVER
         self.db_task = self.check_db_placeholders.start()
 
@@ -37,6 +40,9 @@ class Gates(commands.Cog):
             return
 
         if not message.guild.id == self.server_id:
+            return
+
+        if message.author.bot:
             return
 
         # get the member
@@ -156,6 +162,67 @@ class Gates(commands.Cog):
                             f'{"s" if hours != 1 else ""}.'
 
         return await ctx.send(embed=embed)
+
+    @commands.Cog.listener('on_message')
+    async def user_active_updater(self, message):
+        # stop if we're not in the right guild
+        if not message.guild:
+            return
+
+        if not message.guild.id == self.server_id:
+            return
+
+        if message.author.bot:
+            return
+
+        # store the data
+        return await self.active_db.update_one(
+            {'_id': message.author.id},
+            {
+                '$set': {'_id': message.author.id},
+                '$currentDate': {'last_post': True}
+            },
+            upsert=True
+        )
+
+    @commands.command(name='inactiveusers', aliases=['inactive'])
+    @commands.check_any(commands.is_owner(), has_role('Admin'))
+    async def inactiveusers(self, ctx, weeks=2):
+        """
+        Shows users who have not posted in X amount of weeks.
+        Requires the Admin role
+
+        `weeks` - Amount of weeks to check for. Defaults to 2.
+        """
+        the_past = datetime.datetime.fromtimestamp(pendulum.now(tz=pendulum.tz.UTC).subtract(weeks=weeks).timestamp())
+        data = await self.active_db.find({
+            'last_post': {'$lte': the_past}
+        }).to_list(None)
+
+        paginator = commands.Paginator()
+
+        out_data: typing.List[list] = []
+        for item in data:
+            user = self.bot.get_guild(self.server_id).get_member(item['_id'])
+            last = pendulum.instance(item['last_post'])
+            out_data.append([user, last])
+
+        out_data = sorted(out_data, key=lambda i: i[1])
+
+        for x in out_data:
+            x[1] = x[1].to_day_datetime_string()
+
+        out_data.insert(0, ['Member', 'Last Posted (UTC)'])
+
+        table = tabulate(out_data, headers='firstrow', tablefmt='fancy_grid')
+        table = table.splitlines()
+
+        for line in table:
+            paginator.add_line(line)
+
+        await ctx.send(f'**Members who have not sent a message in {weeks} week(s):**')
+        for page in paginator.pages:
+            await ctx.send(page)
 
 
 def setup(bot):
