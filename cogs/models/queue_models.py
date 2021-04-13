@@ -2,7 +2,7 @@ import operator
 
 import discord
 
-from utils.constants import GROUP_SIZE
+from utils.constants import GROUP_SIZE, DEV_ID
 from utils.constants import TIERS as TIERS
 from utils.functions import create_queue_embed, try_delete
 
@@ -139,7 +139,8 @@ class Queue:
 
         for index, group in enumerate(self.groups):
             embed.add_field(name=f'{index + 1}. Rank {group.tier}',
-                            value=', '.join([player.mention for player in group.players]), inline=False)
+                            value=', '.join([player.mention+('🐢' if player.member.id == DEV_ID else '')
+                                             for player in group.players]), inline=False)
 
         return embed
 

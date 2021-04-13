@@ -115,6 +115,8 @@ class QueueChannel(commands.Cog):
 
         try:
             await message.add_reaction('<:d20:773638073052561428>')
+            if message.author.id == self.bot.dev_id:
+                await message.add_reaction('🐢')
         except discord.HTTPException:
             pass  # We ignore Discord being weird!
         except (discord.NotFound, discord.Forbidden) as e:
