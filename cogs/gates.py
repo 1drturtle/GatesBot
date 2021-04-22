@@ -204,6 +204,10 @@ class Gates(commands.Cog):
         out_data: typing.List[list] = []
         for item in data:
             user = self.bot.get_guild(self.server_id).get_member(item['_id'])
+            if user is None:
+                log.info(f'member {item["_id"]} not found - removing from database.')
+                await self.active_db.delete_one({'_id': item['_id']})
+                continue
             last = pendulum.instance(item['last_post'])
             out_data.append([user, last])
 
