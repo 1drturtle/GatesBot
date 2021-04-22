@@ -92,8 +92,8 @@ class Gates(commands.Cog):
 
             if ((document['message_date'] + datetime.timedelta(hours=setting)) - utc_now).total_seconds() <= (15 * 60):  # ten minutes
                 log.info(f'scheduling placeholder for {document["_id"]}')
-                self.bot.loop.create_task(self.run_placeholder_reminder(document, setting))
                 await self.placeholder_db.delete_one({'message_id': document['message_id']})
+                self.bot.loop.create_task(self.run_placeholder_reminder(document, setting))
 
     async def run_placeholder_reminder(self, placeholder_data: dict, hours: int = 1):
         """
