@@ -109,7 +109,10 @@ class Gates(commands.Cog):
         guild = self.bot.get_guild(placeholder_data['guild_id'])
         member = guild.get_member(placeholder_data['author_id'])
         channel = guild.get_channel(placeholder_data['channel_id'])
-        message = await channel.fetch_message(placeholder_data['message_id'])
+        try:
+            message = await channel.fetch_message(placeholder_data['message_id'])
+        except discord.NotFound:
+            return None
 
         if '*ph*' not in (content := message.content.lower()) and '*placeholder*' not in content \
                 or message is None:
