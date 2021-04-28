@@ -134,6 +134,11 @@ class QueueChannel(commands.Cog):
         # Are we already in a Queue?
         if queue.in_queue(player.member.id):
             if not self.bot.environment == 'testing':
+                try:
+                    await message.author.send('You are already in a queue!')
+                    await message.delete()
+                except:
+                    pass
                 return None
 
         # Can we fit in an existing group?
@@ -148,7 +153,9 @@ class QueueChannel(commands.Cog):
         # update analytics
         data = {
             '$set': {
-                'user_id': message.author.id
+                'user_id': message.author.id,
+                'last.level': player.total_level,
+                'last.classes': player.levels
             },
             '$currentDate': {
                 'last_gate_signup': True
@@ -356,6 +363,22 @@ class QueueChannel(commands.Cog):
         serv = self.bot.get_guild(self.server_id)
         queue.groups[group_index[0]].players.pop(group_index[1])
         await queue.update(self.bot, self.db, serv.get_channel(self.channel_id))
+
+        # update analytics
+        data = {
+            '$set': {
+                'user_id': ctx.author.id,
+            },
+            '$inc': {
+                'gate_signup_count': -1
+            }
+        }
+
+        await self.data_db.update_one(
+            {'user_id': ctx.author.id},
+            data,
+            upsert=True
+        )
 
         return await ctx.send(f'You have been removed from group #{group_index[0] + 1}', delete_after=10)
 
