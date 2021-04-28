@@ -662,21 +662,22 @@ class QueueChannel(commands.Cog):
             return await ctx.author.send('Could not find Player role, aborting channel lock.')
 
         # new perms
-        perms = {
-            player_role: discord.PermissionOverwrite(send_messages=False)
-        }
+        perms = queue_channel.overwrites
+        perms.update({player_role: discord.PermissionOverwrite(send_messages=False)})
 
         # lock the channel
         await queue_channel.edit(
-            reason=f'Channel Lock. Requested by {ctx.author.name}#{ctx.author.discriminator}.' +
-                   (f'\nReason: {reason}' if reason else ''),
+            reason=f'Channel Lock. Requested by {ctx.author.name}#{ctx.author.discriminator}.'+(f'\nReason: {reason}' if reason else ''),
             overwrites=perms
         )
         # send a message
-        await queue_channel.send(f'-- Queue Channel Locked --\n'
-                                 f'The queue channel has been temporarily locked by '
-                                 f'{ctx.author.name}#{ctx.author.discriminator}.' +
-                                 (f'\nReason: {reason}' if reason else ''))
+        embed = create_default_embed(ctx)
+        embed.title = 'Queue Channel Locked'
+        embed.description = f'The queue channel has been temporarily locked by ' \
+                            f'{ctx.author.name}#{ctx.author.discriminator}.'
+        if reason:
+            embed.add_field(name='Reason', value=reason)
+        await queue_channel.send(embed=embed)
 
     # Owner/Admin Commands
     @commands.command(name='unlock')
@@ -692,9 +693,8 @@ class QueueChannel(commands.Cog):
             return await ctx.author.send('Could not find Player role, aborting channel unlock.')
 
         # new perms
-        perms = {
-            player_role: discord.PermissionOverwrite(send_messages=True)
-        }
+        perms = queue_channel.overwrites
+        perms.update({player_role: discord.PermissionOverwrite(send_messages=True)})
 
         # lock the channel
         await queue_channel.edit(
@@ -706,9 +706,10 @@ class QueueChannel(commands.Cog):
         async for msg in queue_channel.history(limit=25):
             if not msg.author.id == self.bot.user.id:
                 continue
-            if '-- Queue Channel Locked --' in msg.content:
-                await try_delete(msg)
-                break
+            if msg.embeds:
+                em = msg.embeds[0]
+                if em.title == 'Queue Channel Locked':
+                    await try_delete(msg)
 
 
 def setup(bot):
