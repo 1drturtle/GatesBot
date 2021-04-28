@@ -11,7 +11,7 @@ from discord.ext import tasks
 import utils.constants as constants
 from cogs.models.queue_models import Player, Group, Queue
 from utils.checks import has_role
-from utils.functions import create_default_embed
+from utils.functions import create_default_embed, try_delete
 
 line_re = re.compile(r'\*\*in line:*\*\*', re.IGNORECASE)
 player_class_regex = re.compile(r'((\w+ )*(\w+) (\d+))')
@@ -647,6 +647,68 @@ class QueueChannel(commands.Cog):
             )
 
         return await ctx.send(embed=embed)
+
+    # Owner/Admin Commands
+    @commands.command(name='lock')
+    @commands.check_any(commands.is_owner(), has_role('Admin'))
+    async def lockqueue(self, ctx, reason: str = None):
+        """Locks the queue channel. Admin only."""
+        # get the channel
+        queue_channel: discord.TextChannel = ctx.guild.get_channel(self.channel_id)
+        if queue_channel is None:
+            return await ctx.author.send('Could not find queue channel, aborting channel lock.')
+        player_role: discord.Role = discord.utils.find(lambda r: r.name.lower() == 'player', ctx.guild.roles)
+        if player_role is None:
+            return await ctx.author.send('Could not find Player role, aborting channel lock.')
+
+        # new perms
+        perms = {
+            player_role: discord.PermissionOverwrite(send_messages=False)
+        }
+
+        # lock the channel
+        await queue_channel.edit(
+            reason=f'Channel Lock. Requested by {ctx.author.name}#{ctx.author.discriminator}.' +
+                   (f'\nReason: {reason}' if reason else ''),
+            overwrites=perms
+        )
+        # send a message
+        await queue_channel.send(f'-- Queue Channel Locked --\n'
+                                 f'The queue channel has been temporarily locked by '
+                                 f'{ctx.author.name}#{ctx.author.discriminator}.' +
+                                 (f'\nReason: {reason}' if reason else ''))
+
+    # Owner/Admin Commands
+    @commands.command(name='unlock')
+    @commands.check_any(commands.is_owner(), has_role('Admin'))
+    async def unlockqueue(self, ctx, reason: str = None):
+        """Unlocks the queue channel. Admin only."""
+        # get the channel
+        queue_channel: discord.TextChannel = ctx.guild.get_channel(self.channel_id)
+        if queue_channel is None:
+            return await ctx.author.send('Could not find queue channel, aborting channel unlock.')
+        player_role: discord.Role = discord.utils.find(lambda r: r.name.lower() == 'player', ctx.guild.roles)
+        if player_role is None:
+            return await ctx.author.send('Could not find Player role, aborting channel unlock.')
+
+        # new perms
+        perms = {
+            player_role: discord.PermissionOverwrite(send_messages=True)
+        }
+
+        # lock the channel
+        await queue_channel.edit(
+            reason=f'Channel unlock. Requested by {ctx.author.name}#{ctx.author.discriminator}.' +
+                   (f'\nReason: {reason}' if reason else ''),
+            overwrites=perms
+        )
+        # find locked message?
+        async for msg in queue_channel.history(limit=25):
+            if not msg.author.id == self.bot.user.id:
+                continue
+            if '-- Queue Channel Locked --' in msg.content:
+                await try_delete(msg)
+                break
 
 
 def setup(bot):
