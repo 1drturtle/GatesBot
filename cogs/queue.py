@@ -665,7 +665,9 @@ class QueueChannel(commands.Cog):
 
         # new perms
         perms = queue_channel.overwrites
-        perms.update({player_role: discord.PermissionOverwrite(send_messages=False)})
+        player_perms = perms.get(player_role)
+        player_perms.update(send_messages=False)
+        perms.update({player_role: player_perms})
 
         # lock the channel
         await queue_channel.edit(
@@ -696,7 +698,9 @@ class QueueChannel(commands.Cog):
 
         # new perms
         perms = queue_channel.overwrites
-        perms.update({player_role: discord.PermissionOverwrite(send_messages=True)})
+        player_perms = perms.get(player_role)
+        player_perms.update(send_messages=True)
+        perms.update({player_role: player_perms})
 
         # lock the channel
         await queue_channel.edit(
