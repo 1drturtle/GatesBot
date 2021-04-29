@@ -653,7 +653,7 @@ class QueueChannel(commands.Cog):
     # Owner/Admin Commands
     @commands.command(name='lock')
     @commands.check_any(commands.is_owner(), has_role('Admin'))
-    async def lockqueue(self, ctx, reason: str = None):
+    async def lockqueue(self, ctx, *, reason: str = None):
         """Locks the queue channel. Admin only."""
         # get the channel
         queue_channel: discord.TextChannel = ctx.guild.get_channel(self.channel_id)
@@ -686,7 +686,7 @@ class QueueChannel(commands.Cog):
     # Owner/Admin Commands
     @commands.command(name='unlock')
     @commands.check_any(commands.is_owner(), has_role('Admin'))
-    async def unlockqueue(self, ctx, reason: str = None):
+    async def unlockqueue(self, ctx, *, reason: str = None):
         """Unlocks the queue channel. Admin only."""
         # get the channel
         queue_channel: discord.TextChannel = ctx.guild.get_channel(self.channel_id)
