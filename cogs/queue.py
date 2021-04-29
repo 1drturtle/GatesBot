@@ -716,6 +716,7 @@ class QueueChannel(commands.Cog):
                 em = msg.embeds[0]
                 if em.title == 'Queue Channel Locked':
                     await try_delete(msg)
+                    break
 
 
 def setup(bot):
