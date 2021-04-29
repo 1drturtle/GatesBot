@@ -155,7 +155,8 @@ class QueueChannel(commands.Cog):
             '$set': {
                 'user_id': message.author.id,
                 'last.level': player.total_level,
-                'last.classes': player.levels
+                'last.classes': player.levels,
+                'joined_at': player.member.joined_at
             },
             '$currentDate': {
                 'last_gate_signup': True
