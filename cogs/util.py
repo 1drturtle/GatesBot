@@ -6,7 +6,7 @@ from discord.ext import commands
 import discord
 
 from utils.functions import create_default_embed
-from utils.constants import DATE_FORMAT
+from utils.constants import DATE_FORMAT, VERSION
 
 
 def time_to_readable(delta_uptime):
@@ -56,6 +56,7 @@ class Utility(commands.Cog):
         members = sum([guild.member_count for guild in self.bot.guilds])
         embed.add_field(name='Guilds', value=f'{len(self.bot.guilds)}')
         embed.add_field(name='Members', value=f'{members}')
+        embed.add_field(name='Version', value=f's{VERSION}')
         embed.url = 'https://github.com/1drturtle/GatesBot'
 
         await ctx.send(embed=embed)
