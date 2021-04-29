@@ -156,7 +156,7 @@ class QueueChannel(commands.Cog):
                 'user_id': message.author.id,
                 'last.level': player.total_level,
                 'last.classes': player.levels,
-                'last.name': f'{player.member.name}#{player.member.display_name}',
+                'last.name': f'{player.member.name}#{player.member.discriminator}',
                 'joined_at': player.member.joined_at
             },
             '$currentDate': {
