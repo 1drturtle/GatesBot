@@ -603,7 +603,7 @@ class QueueChannel(commands.Cog):
         embed.description = out
         await ctx.send(embed=embed)
 
-    @stats.command(name='player')
+    @stats.group(name='player', invoke_without_command=True)
     async def queue_playerstats(self, ctx, who: discord.Member = None):
         """
         Shows your data for the Queue.
@@ -649,6 +649,40 @@ class QueueChannel(commands.Cog):
             )
 
         return await ctx.send(embed=embed)
+
+    @queue_playerstats.command(name='top')
+    async def queue_playerstats_top(self, ctx):
+        """
+        Shows the top defenders in the Gates.
+        """
+        embed = create_default_embed(ctx)
+        embed.title = 'Gates Leaderboards'
+
+        player_cache = []
+        async for player in self.data_db.find():
+            if not player.get('last'):
+                continue
+            player.pop('_id')
+            player_cache.append(player)
+
+        # top levels
+        levels_sorted = sorted(player_cache, key=lambda x: x['last'].get('level'), reverse=True)[:3]
+        embed.add_field(
+            name='Highest (known) Level',
+            value='```'+('\n'.join([f'- {x["last"].get("name") or "Unknown"}'
+                                    f' (L{x["last"].get("level") or "??"})' for x in levels_sorted]))+'\n```'
+        )
+
+        # top # of gates
+        gates_sorted = sorted(player_cache, key=lambda x: x.get('gate_summon_count', 0), reverse=True)[:3]
+        embed.add_field(
+            name='Gates Summoned To',
+            value='```'+('\n'.join([f'- {x["last"].get("name") or "Unknown"}'
+                                    f': {x.get("gate_summon_count") or "0"}' for x in gates_sorted]))+'\n```'
+        )
+
+        return await ctx.send(embed=embed)
+
 
     # Owner/Admin Commands
     @commands.command(name='lock')
