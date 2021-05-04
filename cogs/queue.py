@@ -666,19 +666,19 @@ class QueueChannel(commands.Cog):
             player_cache.append(player)
 
         # top levels
-        levels_sorted = sorted(player_cache, key=lambda x: x['last'].get('level'), reverse=True)[:3]
+        levels_sorted = sorted(player_cache, key=lambda x: x['last'].get('level'), reverse=True)[:5]
         embed.add_field(
             name='Highest (known) Level',
-            value='```'+('\n'.join([f'- {x["last"].get("name") or "Unknown"}'
-                                    f' (L{x["last"].get("level") or "??"})' for x in levels_sorted]))+'\n```'
+            value='```'+('\n'.join([f'{i+1}. {x["last"].get("name") or "Unknown"}'
+                                    f' (L{x["last"].get("level") or "??"})' for i, x in enumerate(levels_sorted)]))+'\n```'
         )
 
         # top # of gates
-        gates_sorted = sorted(player_cache, key=lambda x: x.get('gate_summon_count', 0), reverse=True)[:3]
+        gates_sorted = sorted(player_cache, key=lambda x: x.get('gate_summon_count', 0), reverse=True)[:5]
         embed.add_field(
             name='Gates Summoned To',
-            value='```'+('\n'.join([f'- {x["last"].get("name") or "Unknown"}'
-                                    f': {x.get("gate_summon_count") or "0"}' for x in gates_sorted]))+'\n```'
+            value='```'+('\n'.join([f'{i+1}. {x["last"].get("name") or "Unknown"}'
+                                    f': {x.get("gate_summon_count") or "0"}' for i, x in enumerate(gates_sorted)]))+'\n```'
         )
 
         return await ctx.send(embed=embed)
