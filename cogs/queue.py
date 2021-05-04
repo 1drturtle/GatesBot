@@ -666,7 +666,7 @@ class QueueChannel(commands.Cog):
             player_cache.append(player)
 
         # top levels
-        levels_sorted = sorted(player_cache, key=lambda x: x['last'].get('level'), reverse=True)[:5]
+        levels_sorted = sorted(player_cache, key=lambda x: x['last'].get('level'), reverse=True)[:10]
         embed.add_field(
             name='Highest (known) Level',
             value='```'+('\n'.join([f'{i+1}. {x["last"].get("name") or "Unknown"}'
@@ -674,7 +674,7 @@ class QueueChannel(commands.Cog):
         )
 
         # top # of gates
-        gates_sorted = sorted(player_cache, key=lambda x: x.get('gate_summon_count', 0), reverse=True)[:5]
+        gates_sorted = sorted(player_cache, key=lambda x: x.get('gate_summon_count', 0), reverse=True)[:10]
         embed.add_field(
             name='Gates Summoned To',
             value='```'+('\n'.join([f'{i+1}. {x["last"].get("name") or "Unknown"}'
