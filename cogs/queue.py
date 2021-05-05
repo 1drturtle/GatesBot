@@ -509,9 +509,10 @@ class QueueChannel(commands.Cog):
         for i, group in enumerate(queue.groups):
             if group.tier == tier:
                 queue.groups.pop(i)
-                all_players.extend(group.players)
+                for player in group.players:
+                    all_players.append(player)
 
-        random.shuffle(all_players)
+        all_players = random.sample(all_players, len(all_players))
 
         for player in all_players:
             if (index := queue.can_fit_in_group(player)) is not None:
