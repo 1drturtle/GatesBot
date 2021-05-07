@@ -506,11 +506,11 @@ class QueueChannel(commands.Cog):
         queue = await queue_from_guild(self.db, ctx.guild)
 
         all_players = []
-        for i, group in enumerate(queue.groups):
-            if group.tier == tier:
-                queue.groups.pop(i)
-                for player in group.players:
-                    all_players.append(player)
+        for group in queue.groups.copy():
+            if group.tier != tier:
+                continue
+            queue.groups.remove(group)
+            all_players.extend(group.players)
 
         all_players = random.sample(all_players, len(all_players))
 
