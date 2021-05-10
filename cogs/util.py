@@ -56,7 +56,7 @@ class Utility(commands.Cog):
         members = sum([guild.member_count for guild in self.bot.guilds])
         embed.add_field(name='Guilds', value=f'{len(self.bot.guilds)}')
         embed.add_field(name='Members', value=f'{members}')
-        embed.add_field(name='Version', value=f's{VERSION}')
+        embed.add_field(name='Version', value=f'v{VERSION}')
         embed.url = 'https://github.com/1drturtle/GatesBot'
 
         await ctx.send(embed=embed)
