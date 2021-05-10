@@ -14,7 +14,8 @@ from utils.checks import has_role
 from utils.functions import create_default_embed, try_delete
 
 line_re = re.compile(r'\*\*in line:*\*\*', re.IGNORECASE)
-player_class_regex = re.compile(r'((\w+ )*(\w+) (\d+))')
+# player_class_regex = re.compile(r'((\w+ )*(\w+) (\d+))')
+player_class_regex = re.compile(r'(?P<subclass>(?:\w+ )*)(?P<class>\w+) (?P<level>\d+)')
 
 log = logging.getLogger(__name__)
 
@@ -39,8 +40,9 @@ def parse_player_class(class_str) -> dict:
             level = int(match[-1].strip())  # Last group is always a number.
         except ValueError:
             level = 4
-        player_class = match[2].strip() if match[2] else 'None'
-        subclass = match[1].strip() if match[1] else 'None'
+        player_class = match[-2].strip() or 'None'
+        subclass = match[0].strip() or 'None'
+
         out['total_level'] += level
         out['classes'].append({'class': player_class, 'subclass': subclass, 'level': level})
 
