@@ -340,8 +340,11 @@ class QueueChannel(commands.Cog):
         except discord.NotFound:
             assignments_ch = None
         assignments_str = f"<#{assignments_ch.id}>" if assignments_ch is not None else "#assignments"
+
+        out_players = sorted(popped.players, key=lambda x: x.member.display_name)
+
         if summons_ch is not None:
-            msg = ', '.join([p.mention for p in popped.players]) + '\n'
+            msg = ', '.join([p.mention for p in out_players]) + '\n'
             if not reinforcement:
                 msg += f'Welcome to the {gate["name"].lower().title()} Gate! Head to {assignments_str}' \
                        f' and grab the {gate["emoji"]} from the list and head over to the gate!\n' \
@@ -672,20 +675,21 @@ class QueueChannel(commands.Cog):
         levels_sorted = sorted(player_cache, key=lambda x: x['last'].get('level'), reverse=True)[:10]
         embed.add_field(
             name='Highest (known) Level',
-            value='```'+('\n'.join([f'{i+1}. {x["last"].get("name") or "Unknown"}'
-                                    f' (L{x["last"].get("level") or "??"})' for i, x in enumerate(levels_sorted)]))+'\n```'
+            value='```' + ('\n'.join([f'{i + 1}. {x["last"].get("name") or "Unknown"}'
+                                      f' (L{x["last"].get("level") or "??"})' for i, x in
+                                      enumerate(levels_sorted)])) + '\n```'
         )
 
         # top # of gates
         gates_sorted = sorted(player_cache, key=lambda x: x.get('gate_summon_count', 0), reverse=True)[:10]
         embed.add_field(
             name='Gates Summoned To',
-            value='```'+('\n'.join([f'{i+1}. {x["last"].get("name") or "Unknown"}'
-                                    f': {x.get("gate_summon_count") or "0"}' for i, x in enumerate(gates_sorted)]))+'\n```'
+            value='```' + ('\n'.join([f'{i + 1}. {x["last"].get("name") or "Unknown"}'
+                                      f': {x.get("gate_summon_count") or "0"}' for i, x in
+                                      enumerate(gates_sorted)])) + '\n```'
         )
 
         return await ctx.send(embed=embed)
-
 
     # Owner/Admin Commands
     @commands.command(name='lock')
@@ -708,7 +712,8 @@ class QueueChannel(commands.Cog):
 
         # lock the channel
         await queue_channel.edit(
-            reason=f'Channel Lock. Requested by {ctx.author.name}#{ctx.author.discriminator}.'+(f'\nReason: {reason}' if reason else ''),
+            reason=f'Channel Lock. Requested by {ctx.author.name}#{ctx.author.discriminator}.' + (
+                f'\nReason: {reason}' if reason else ''),
             overwrites=perms
         )
         # send a message
