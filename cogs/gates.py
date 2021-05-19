@@ -188,47 +188,69 @@ class Gates(commands.Cog):
             upsert=True
         )
 
-    @commands.command(name='inactiveusers', aliases=['inactive'])
+    # @commands.command(name='inactiveusers', aliases=['inactive'])
+    # @commands.check_any(commands.is_owner(), has_role('Admin'))
+    # async def inactiveusers(self, ctx, weeks=2):
+    #     """
+    #     Shows users who have not posted in X amount of weeks.
+    #     Requires the Admin role
+    #
+    #     `weeks` - Amount of weeks to check for. Defaults to 2.
+    #     """
+    #     the_past = datetime.datetime.fromtimestamp(pendulum.now(tz=pendulum.tz.UTC).subtract(weeks=weeks).timestamp())
+    #     data = await self.active_db.find({
+    #         'last_post': {'$lte': the_past}
+    #     }).to_list(None)
+    #
+    #     paginator = commands.Paginator()
+    #
+    #     out_data: typing.List[list] = []
+    #     for item in data:
+    #         user = self.bot.get_guild(self.server_id).get_member(item['_id'])
+    #         if user is None:
+    #             log.info(f'member {item["_id"]} not found - removing from database.')
+    #             await self.active_db.delete_one({'_id': item['_id']})
+    #             continue
+    #         last = pendulum.instance(item['last_post'])
+    #         out_data.append([user, last])
+    #
+    #     out_data = sorted(out_data, key=lambda i: i[1])
+    #
+    #     for x in out_data:
+    #         x[1] = x[1].to_day_datetime_string()
+    #
+    #     out_data.insert(0, ['Member', 'Last Posted (UTC)'])
+    #
+    #     table = tabulate(out_data, headers='firstrow', tablefmt='fancy_grid')
+    #     table = table.splitlines()
+    #
+    #     for line in table:
+    #         paginator.add_line(line)
+    #
+    #     await ctx.send(f'**Members who have not sent a message in {weeks} week(s):**')
+    #     for page in paginator.pages:
+    #         await ctx.send(page)
+
+    @commands.command(name='inactive')
     @commands.check_any(commands.is_owner(), has_role('Admin'))
-    async def inactiveusers(self, ctx, weeks=2):
-        """
-        Shows users who have not posted in X amount of weeks.
-        Requires the Admin role
+    async def inactive(self, ctx):
+        q = self.bot.cogs['QueueChannel']
+        s = self.bot.get_guild(q.server_id)
 
-        `weeks` - Amount of weeks to check for. Defaults to 2.
-        """
-        the_past = datetime.datetime.fromtimestamp(pendulum.now(tz=pendulum.tz.UTC).subtract(weeks=weeks).timestamp())
-        data = await self.active_db.find({
-            'last_post': {'$lte': the_past}
-        }).to_list(None)
+        pag = commands.Paginator()
 
-        paginator = commands.Paginator()
+        out = []
+        for mem in s.members:
+            if not discord.utils.find(lambda r: r.name == 'Active', mem.roles):
+                if mem.bot:
+                    continue
+                out.append(mem)
 
-        out_data: typing.List[list] = []
-        for item in data:
-            user = self.bot.get_guild(self.server_id).get_member(item['_id'])
-            if user is None:
-                log.info(f'member {item["_id"]} not found - removing from database.')
-                await self.active_db.delete_one({'_id': item['_id']})
-                continue
-            last = pendulum.instance(item['last_post'])
-            out_data.append([user, last])
+        pag.add_line('-- Members without Active role --\n')
+        for x in out:
+            pag.add_line(f'- {x.display_name}')
 
-        out_data = sorted(out_data, key=lambda i: i[1])
-
-        for x in out_data:
-            x[1] = x[1].to_day_datetime_string()
-
-        out_data.insert(0, ['Member', 'Last Posted (UTC)'])
-
-        table = tabulate(out_data, headers='firstrow', tablefmt='fancy_grid')
-        table = table.splitlines()
-
-        for line in table:
-            paginator.add_line(line)
-
-        await ctx.send(f'**Members who have not sent a message in {weeks} week(s):**')
-        for page in paginator.pages:
+        for page in pag.pages:
             await ctx.send(page)
 
 
