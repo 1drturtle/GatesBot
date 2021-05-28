@@ -149,7 +149,7 @@ class QueueChannel(commands.Cog):
 
         # Create a Player Object.
         player: Player = Player.new(message.author, player_details)
-        await stats_check(player)
+        # await stats_check(player)
 
         # Get our Queue
         queue = await queue_from_guild(self.db, self.bot.get_guild(self.server_id))
