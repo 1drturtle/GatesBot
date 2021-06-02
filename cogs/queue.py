@@ -725,6 +725,8 @@ class QueueChannel(commands.Cog):
         if player_role is None:
             return await ctx.author.send('Could not find Player role, aborting channel lock.')
 
+        log.info(f'Queue has been locked by {ctx.author.name}#{ctx.author.discriminator}')
+
         # new perms
         perms = queue_channel.overwrites
         player_perms = perms.get(player_role)
@@ -758,6 +760,8 @@ class QueueChannel(commands.Cog):
         player_role: discord.Role = discord.utils.find(lambda r: r.name.lower() == 'player', ctx.guild.roles)
         if player_role is None:
             return await ctx.author.send('Could not find Player role, aborting channel unlock.')
+
+        log.info(f'Queue has been unlocked by {ctx.author.name}#{ctx.author.discriminator}')
 
         # new perms
         perms = queue_channel.overwrites

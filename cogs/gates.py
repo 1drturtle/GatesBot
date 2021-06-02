@@ -83,6 +83,7 @@ class Gates(commands.Cog):
         cursor = self.placeholder_db.find().sort('message_date')
         utc_now = datetime.datetime.utcnow()
         log.debug('running placeholder loop!')
+        scheduled = []
         for document in await cursor.to_list(length=None):
             setting = await self.settings_db.find_one({'user_id': document["author_id"]})
             if setting is None:
@@ -91,9 +92,12 @@ class Gates(commands.Cog):
                 setting = setting['hours']
 
             if ((document['message_date'] + datetime.timedelta(hours=setting)) - utc_now).total_seconds() <= (15 * 60):  # ten minutes
-                log.info(f'scheduling placeholder for {document["_id"]}')
                 await self.placeholder_db.delete_one({'message_id': document['message_id']})
                 self.bot.loop.create_task(self.run_placeholder_reminder(document, setting))
+                scheduled.append(document)
+
+        if scheduled:
+            log.info(f'[Placeholder] {len(scheduled)} placeholder(s) have been scheduled.')
 
     async def run_placeholder_reminder(self, placeholder_data: dict, hours: int = 1):
         """
