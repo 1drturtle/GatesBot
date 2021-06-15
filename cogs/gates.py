@@ -86,10 +86,7 @@ class Gates(commands.Cog):
         scheduled = []
         for document in await cursor.to_list(length=None):
             setting = await self.settings_db.find_one({'user_id': document["author_id"]})
-            if setting is None:
-                setting = 1
-            else:
-                setting = setting['hours']
+            setting = setting.get('hours', 1) if setting else 1
 
             if ((document['message_date'] + datetime.timedelta(hours=setting)) - utc_now).total_seconds() <= (15 * 60):  # ten minutes
                 await self.placeholder_db.delete_one({'message_id': document['message_id']})
