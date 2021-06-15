@@ -97,7 +97,7 @@ class Gates(commands.Cog):
                 scheduled.append(document)
 
         if scheduled:
-            log.info(f'[Placeholder] {len(scheduled)} placeholder(s) have been scheduled.')
+            log.debug(f'[Placeholder] {len(scheduled)} placeholder(s) have been scheduled.')
 
     async def run_placeholder_reminder(self, placeholder_data: dict, hours: int = 1):
         """
@@ -108,11 +108,16 @@ class Gates(commands.Cog):
         # wait until an hour has passed from the original message
         future = placeholder_data['message_date'] + datetime.timedelta(hours=hours)
         await discord.utils.sleep_until(future)
-        log.info(f'running placeholder for {placeholder_data["_id"]}')
+        
         # get data from bot
         guild = self.bot.get_guild(placeholder_data['guild_id'])
         member = guild.get_member(placeholder_data['author_id'])
         channel = guild.get_channel(placeholder_data['channel_id'])
+
+        try:
+            log.info(f'[Placheholder] running placeholder for {member.display_name} in #{channel.name}')
+        except:
+            pass
         try:
             message = await channel.fetch_message(placeholder_data['message_id'])
         except discord.NotFound:
