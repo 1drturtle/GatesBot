@@ -90,7 +90,7 @@ async def stats_check(player: Player):
     else:
         return await player.member.send(f'Hi! You currently have the role for {wrong_role.name}, but you put your level'
                                         f' as Level {player.total_level} into the signup.'
-                                        f'\nPlease either grab the correct role'
+                                        f'\nPlease either grab the correct role '
                                         f'from <#768164301013647391> or leave the queue with `=leave` and sign-up with'
                                         f' the correct level. Thank you!')
 
@@ -149,7 +149,7 @@ class QueueChannel(commands.Cog):
 
         # Create a Player Object.
         player: Player = Player.new(message.author, player_details)
-        # await stats_check(player)
+        await stats_check(player)
 
         # Get our Queue
         queue = await queue_from_guild(self.db, self.bot.get_guild(self.server_id))
