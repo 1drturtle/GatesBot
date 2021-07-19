@@ -86,10 +86,7 @@ class Gates(commands.Cog):
         scheduled = []
         for document in await cursor.to_list(length=None):
             setting = await self.settings_db.find_one({'user_id': document["author_id"]})
-            if setting is None:
-                setting = 1
-            else:
-                setting = setting['hours']
+            setting = setting.get('hours', 1) if setting else 1
 
             if ((document['message_date'] + datetime.timedelta(hours=setting)) - utc_now).total_seconds() <= (15 * 60):  # ten minutes
                 await self.placeholder_db.delete_one({'message_id': document['message_id']})
@@ -97,7 +94,7 @@ class Gates(commands.Cog):
                 scheduled.append(document)
 
         if scheduled:
-            log.info(f'[Placeholder] {len(scheduled)} placeholder(s) have been scheduled.')
+            log.debug(f'[Placeholder] {len(scheduled)} placeholder(s) have been scheduled.')
 
     async def run_placeholder_reminder(self, placeholder_data: dict, hours: int = 1):
         """
@@ -108,11 +105,16 @@ class Gates(commands.Cog):
         # wait until an hour has passed from the original message
         future = placeholder_data['message_date'] + datetime.timedelta(hours=hours)
         await discord.utils.sleep_until(future)
-        log.info(f'running placeholder for {placeholder_data["_id"]}')
+        
         # get data from bot
         guild = self.bot.get_guild(placeholder_data['guild_id'])
         member = guild.get_member(placeholder_data['author_id'])
         channel = guild.get_channel(placeholder_data['channel_id'])
+
+        try:
+            log.info(f'[Placheholder] running placeholder for {member.display_name} in #{channel.name}')
+        except:
+            pass
         try:
             message = await channel.fetch_message(placeholder_data['message_id'])
         except discord.NotFound:
