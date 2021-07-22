@@ -60,7 +60,7 @@ class Gates(commands.Cog):
             return
 
         # stop if there's no placeholder:
-        if '*ph*' not in (content := message.content.lower()) and '*placeholder*' not in content:
+        if not any([x in message.content.lower() for x in ['*ph*', '*placeholder*', '_ph_', '_placeholder_']]):
             return
 
         # register the placeholder in the database
