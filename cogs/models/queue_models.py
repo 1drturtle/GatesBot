@@ -187,11 +187,11 @@ class Queue:
                     index = (i, ii)
         return index
 
-    def can_fit_in_group(self, player: Player):
+    def can_fit_in_group(self, player: Player, group_size=GROUP_SIZE):
         out = None
         for index, group in enumerate(self.groups):
             if group.tier == player.tier:
-                if len(group.players) >= GROUP_SIZE:
+                if len(group.players) >= group_size:
                     continue
                 out = index
                 break

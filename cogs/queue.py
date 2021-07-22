@@ -522,7 +522,7 @@ class QueueChannel(commands.Cog):
     @commands.command(name='shuffle')
     @commands.check_any(has_role('Admin'), commands.is_owner())
     @commands.guild_only()
-    async def shuffle_groups(self, ctx, tier: int):
+    async def shuffle_groups(self, ctx, tier: int, group_size: int = constants.GROUP_SIZE):
         """
         Shuffles the Queue. Warning! This action is __irrevocable__.
         Requires the Admin role.
@@ -541,7 +541,7 @@ class QueueChannel(commands.Cog):
         all_players = random.sample(all_players, len(all_players))
 
         for player in all_players:
-            if (index := queue.can_fit_in_group(player)) is not None:
+            if (index := queue.can_fit_in_group(player, group_size)) is not None:
                 queue.groups[index].players.append(player)
             else:
                 new_group = Group.new(player.tier, [player])
