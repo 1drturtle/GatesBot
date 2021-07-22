@@ -528,6 +528,7 @@ class QueueChannel(commands.Cog):
         Requires the Admin role.
 
         `tier` - What tier to shuffle.
+        `group_size` - How big to make the shuffled groups. Default is 5
         """
         queue = await queue_from_guild(self.db, ctx.guild)
 
