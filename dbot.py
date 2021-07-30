@@ -12,7 +12,7 @@ import utils.config as config
 from utils.functions import try_delete
 
 COGS = {'cogs.util', 'jishaku', 'cogs.queue', 'cogs.gates', 'cogs.schedule',
-        'cogs.errors', 'cogs.admin', 'cogs.help'}
+        'cogs.errors', 'cogs.admin', 'cogs.help', 'cogs.dm_queue'}
 
 
 async def get_prefix(client, message):
