@@ -90,7 +90,7 @@ async def stats_check(player: Player):
     else:
         return await player.member.send(f'Hi! You currently have the role for {wrong_role.name}, but you put your level'
                                         f' as Level {player.total_level} into the signup.'
-                                        f'\nPlease either grab the correct role'
+                                        f'\nPlease either grab the correct role '
                                         f'from <#768164301013647391> or leave the queue with `=leave` and sign-up with'
                                         f' the correct level. Thank you!')
 
@@ -149,7 +149,7 @@ class QueueChannel(commands.Cog):
 
         # Create a Player Object.
         player: Player = Player.new(message.author, player_details)
-        # await stats_check(player)
+        await stats_check(player)
 
         # Get our Queue
         queue = await queue_from_guild(self.db, self.bot.get_guild(self.server_id))
@@ -522,12 +522,13 @@ class QueueChannel(commands.Cog):
     @commands.command(name='shuffle')
     @commands.check_any(has_role('Admin'), commands.is_owner())
     @commands.guild_only()
-    async def shuffle_groups(self, ctx, tier: int):
+    async def shuffle_groups(self, ctx, tier: int, group_size: int = constants.GROUP_SIZE):
         """
         Shuffles the Queue. Warning! This action is __irrevocable__.
         Requires the Admin role.
 
         `tier` - What tier to shuffle.
+        `group_size` - How big to make the shuffled groups. Default is 5
         """
         queue = await queue_from_guild(self.db, ctx.guild)
 
@@ -541,7 +542,7 @@ class QueueChannel(commands.Cog):
         all_players = random.sample(all_players, len(all_players))
 
         for player in all_players:
-            if (index := queue.can_fit_in_group(player)) is not None:
+            if (index := queue.can_fit_in_group(player, group_size)) is not None:
                 queue.groups[index].players.append(player)
             else:
                 new_group = Group.new(player.tier, [player])
