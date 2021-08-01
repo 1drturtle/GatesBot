@@ -30,8 +30,8 @@ class Schedule(commands.Cog):
             if now.day_of_week == pendulum.SUNDAY and now.hour == 10:
                 channel = self.bot.get_channel(self.channel_id)
                 if channel:
-                    log.debug(f'sending message to #{channel.name} at {now.to_day_datetime_string()}. '
-                              f'next at {next_msg.to_day_datetime_string()}')
+                    log.info(f'[Reminder] Sending Sunday Message to #{channel.name} at {now.to_day_datetime_string()}. '
+                             f'Next at {next_msg.to_day_datetime_string()}')
                     await channel.send('<@&773895151008874518> - don\'t forget to restock tattoos and scrolls via `!scroll` and `!tattoo` in <#813448793965068328>!',
                                        allowed_mentions=discord.AllowedMentions(roles=True))
                 else:

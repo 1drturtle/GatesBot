@@ -375,6 +375,7 @@ class QueueChannel(commands.Cog):
                        f' and grab the {gate["emoji"]} from the list and head over to the gate!\n' \
                        f'Claimed by {ctx.author.mention}'
             await summons_ch.send(msg, allowed_mentions=discord.AllowedMentions(users=True))
+        log.info(f'[Queue] Gate #{group} ({gate_name} gate) claimed by {ctx.author}.')
 
     @commands.command(name='leave')
     @commands.check_any(has_role('Player'), commands.is_owner())
@@ -444,7 +445,7 @@ class QueueChannel(commands.Cog):
         old_player = queue.groups[original_group - 1].players.pop(old_index)
         queue.groups[new_group - 1].players.append(old_player)
         await queue.update(self.bot, self.db, serv.get_channel(self.channel_id))
-
+        log.info(f'[Queue] {ctx.author} moved {player} from group #{original_group} to group #{new_group}.')
         return await ctx.send(f'{player.mention} has been moved from Group #{original_group} to Group #{new_group}',
                               delete_after=10)
 
@@ -472,6 +473,7 @@ class QueueChannel(commands.Cog):
         queue.groups[group_index[0]].players.pop(group_index[1])
         await queue.update(self.bot, self.db, serv.get_channel(self.channel_id))
 
+        log.info(f'[Queue] {ctx.author} removed {player} from Queue.')
         return await ctx.send(f'{player.mention} has been removed from Group #{group_index[0] + 1}', delete_after=10)
 
     @commands.command(name='gateinfo')
@@ -516,6 +518,7 @@ class QueueChannel(commands.Cog):
         queue.groups.insert(group_index[0] + 1, new_group)
         await queue.update(self.bot, self.db, ctx.guild.get_channel(self.channel_id))
 
+        log.info(f'[Queue] {ctx.author} created rank {player.tier} gate from {member}.')
         return await ctx.send(f'{player.mention} has been moved to a new tier {new_group.tier} group!',
                               delete_after=10)
 
@@ -550,6 +553,7 @@ class QueueChannel(commands.Cog):
 
         await queue.update(self.bot, self.db, ctx.guild.get_channel(self.channel_id))
 
+        log.info(f'[Queue] Rank {tier} shuffled by {ctx.author} (GS {group_size})')
         return await ctx.send(f'{ctx.author.mention}, the queue has been shuffled!',
                               allowed_mentions=discord.AllowedMentions(users=True),
                               delete_after=10)
