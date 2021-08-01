@@ -158,6 +158,8 @@ class DMQueue(commands.Cog):
         await self.db.delete_one({'_id': who.id})
         await self.update_queue()
 
+        log.info(f'[DM Queue] {ctx.author} assigned Gate #{group_num} to {who} (DM #{queue_num})')
+
     @dm.command(name='leave')
     @has_role('DM')
     async def dm_leave(self, ctx):
