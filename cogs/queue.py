@@ -356,11 +356,8 @@ class QueueChannel(commands.Cog):
         await self.server_data_db.insert_one(gate_analytics_data)
 
         summons_ch = serv.get_channel(summons_channel_id)
-        try:
-            assignments_ch = await self.channel_converter.convert(ctx, 'assignments')
-        except discord.NotFound:
-            assignments_ch = None
-        assignments_str = f"<#{assignments_ch.id}>" if assignments_ch is not None else "#assignments"
+        assignments_ch = serv.get_channel(874795661198000208)
+        assignments_str = f"<#{assignments_ch.id}>" if assignments_ch is not None else "#gate-assignments-v2"
 
         out_players = sorted(popped.players, key=lambda x: x.member.display_name)
 
