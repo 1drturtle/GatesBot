@@ -86,12 +86,12 @@ async def stats_check(player: Player):
     wrong_role = discord.utils.find(lambda r: r.name.lower().startswith('level'), player.member.roles)
     if not wrong_role:
         return await player.member.send('Hi! You currently do not have a level role. Grab one from near the top of'
-                                        ' <#768164301013647391>!')
+                                        ' <#874436255088275496>!')
     else:
         return await player.member.send(f'Hi! You currently have the role for {wrong_role.name}, but you put your level'
                                         f' as Level {player.total_level} into the signup.'
                                         f'\nPlease either grab the correct role '
-                                        f'from <#768164301013647391> or leave the queue with `=leave` and sign-up with'
+                                        f'from <#874436255088275496> or leave the queue with `=leave` and sign-up with'
                                         f' the correct level. Thank you!')
 
 
