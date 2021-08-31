@@ -120,8 +120,8 @@ class Gates(commands.Cog):
         except discord.NotFound:
             return None
 
-        if '*ph*' not in (content := message.content.lower()) and '*placeholder*' not in content \
-                or message is None:
+        if message is None or \
+                not any([x in message.content.lower() for x in ['*ph*', '*placeholder*', '_ph_', '_placeholder_']]):
             # stop if the message is gone or the placeholder is done
             return None
 
