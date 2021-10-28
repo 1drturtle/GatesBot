@@ -594,7 +594,7 @@ class QueueChannel(commands.Cog):
             groups[group.tier] = groups.get(group.tier, 0) + 1
         group_str = '\n'.join(
             f'**Tier {tier}**: {amt} group{"s" if amt != 1 else ""}' for tier, amt in groups.items()
-        )
+        ) or "No groups in queue."
         embed.add_field(name='Group Stats', value=group_str)
 
         return await ctx.send(embed=embed)
@@ -786,6 +786,19 @@ class QueueChannel(commands.Cog):
                 if em.title == 'Queue Channel Locked':
                     await try_delete(msg)
                     break
+
+    @commands.command(name='empty')
+    @commands.check_any(commands.is_owner(), has_role('Admin'))
+    async def empty_queue(self, ctx):
+        """Empty the queue. Admin only."""
+        queue = await queue_from_guild(self.db, ctx.guild)
+        queue.groups = []
+
+        # Update Queue
+        channel = self.bot.get_channel(self.channel_id)
+        await queue.update(self.bot, self.db, channel)
+
+        await ctx.send(f'Queue Emptied by {ctx.author.mention}', delete_after=10)
 
 
 def setup(bot):
