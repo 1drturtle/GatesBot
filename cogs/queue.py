@@ -604,7 +604,7 @@ class QueueChannel(commands.Cog):
         """
         Gathers data from __all__ previous gates (since Stat tracking started).
         """
-        data = await self.bot.mdb['gate_group_analytics'].find().to_list(length=None)
+        data = await self.server_data_db.find().to_list(length=None)
         if not data:
             return await ctx.send('No gates data found ... Contact the developer!')
 
