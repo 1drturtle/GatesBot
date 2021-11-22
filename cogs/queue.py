@@ -599,6 +599,43 @@ class QueueChannel(commands.Cog):
 
         return await ctx.send(embed=embed)
 
+    @stats.command(name='overall', aliases=['over'])
+    async def stats_overall(self, ctx):
+        """
+        Gathers data from __all__ previous gates (since Stat tracking started).
+        """
+        data = await self.bot.mdb['gate_group_analytics'].find().to_list(length=None)
+        if not data:
+            return await ctx.send('No gates data found ... Contact the developer!')
+
+        embed = create_default_embed(ctx, title="GatesBot Analytics")
+
+        # num of gates
+        embed.add_field(
+            name='Total # of Gates Summoned',
+            value=f'{len(data)} Gates Summoned since 3/27/2021'
+        )
+
+        # average gate tier
+
+        tier = sum(x.get('tier') for x in data)/len(data)
+
+        embed.add_field(
+            name='Average Gate Tier',
+            value=f'Tier {tier:.1f}'
+        )
+
+        # Most summoned-to gate
+        most_summoned = dict()
+        for item in data:
+            most_summoned[item.get("gate_name")] = most_summoned.get(item.get("gate_name"), 0) + 1
+        most_summoned = max(most_summoned.items(), key=lambda x: x[1])
+        embed.add_field(
+            name='Most-Summoned Gate',
+            value=f'{most_summoned[0]} Gate - {most_summoned[1]} summons.'
+        )
+
+
     @stats.group(name='emojis', aliases=['emoji'], invoke_without_command=True)
     async def emoji_personal(self, ctx, who: discord.Member = None):
         """
