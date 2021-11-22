@@ -634,6 +634,8 @@ class QueueChannel(commands.Cog):
             name='Most-Summoned Gate',
             value=f'{most_summoned[0]} Gate - {most_summoned[1]} summons.'
         )
+        
+        await ctx.send(embed=embed)
 
 
     @stats.group(name='emojis', aliases=['emoji'], invoke_without_command=True)
