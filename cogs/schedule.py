@@ -15,11 +15,14 @@ class Schedule(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.task = None
-        self.running = True
+        self.running = False
         self.channel_id = SCHEDULE_CHANNEL_DEBUG if ENVIRONMENT == 'testing' else SCHEDULE_CHANNEL
 
     @commands.Cog.listener(name='on_ready')
     async def ready_listener(self):
+        if self.running:
+            return None
+        self.running = True
         self.task = self.bot.loop.create_task(self.sunday_reminder())
         self.task.add_done_callback(self.task_error)
 

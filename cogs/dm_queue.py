@@ -64,12 +64,9 @@ class DMQueue(commands.Cog):
 
         await self.update_queue()
 
-    async def update_queue(self):
-
-        await asyncio.sleep(1)
+    async def generate_embed(self):
 
         guild = self.bot.get_guild(self.server_id)
-        ch = guild.get_channel(self.queue_channel_id)
 
         data = await self.db.find().sort('readyOn', pymongo.ASCENDING).to_list(None)
         embed = create_queue_embed(self.bot)
@@ -84,6 +81,17 @@ class DMQueue(commands.Cog):
             out.append(cur)
 
         embed.description = '\n'.join(out)
+
+        return embed
+
+    async def update_queue(self):
+
+        await asyncio.sleep(1)
+
+        guild = self.bot.get_guild(self.server_id)
+        ch = guild.get_channel(self.queue_channel_id)
+
+        embed = await self.generate_embed()
 
         # find old & delete
         history = await ch.history(limit=50).flatten()
@@ -159,6 +167,32 @@ class DMQueue(commands.Cog):
         await self.update_queue()
 
         log.info(f'[DM Queue] {ctx.author} assigned Gate #{group_num} to {who} (DM #{queue_num})')
+
+    @dm.command(name='update')
+    @has_role('DM')
+    async def dm_update(self, ctx, rank_content):
+        """Update your DM queue entry."""
+        embed = create_default_embed(ctx)
+        embed.title = 'DM Queue Updated.'
+        embed.description = 'If you are in the DM queue, your message has been updated.'
+        embed.add_field(name='New Message', value=rank_content)
+
+        try:
+            await self.db.update_one({'_id': ctx.author.id}, {'$set': {'ranks': rank_content}})
+        except:
+            pass
+        else:
+            await self.update_queue()
+
+        await ctx.send(embed=embed, delete_after=10)
+
+    @dm.command(name='queue', aliases=['view'])
+    @has_role('DM')
+    async def dm_view(self, ctx):
+        """Shows the DM queue."""
+        embed = await self.generate_embed()
+
+        await ctx.send(embed=embed)
 
     @dm.command(name='leave')
     @has_role('DM')
