@@ -12,6 +12,8 @@ from cogs.models.queue_models import Queue
 
 log = logging.getLogger(__name__)
 
+ROLE = 'Assistant'
+
 
 class StrikeQueue(commands.Cog):
     def __init__(self, bot):
@@ -163,10 +165,10 @@ class StrikeQueue(commands.Cog):
         await self.update_queue()
 
         log.info(f'[Strike Queue] {ctx.author} summoned {", ".join(p.display_name for p in people)} to'
-                 f'{gate_name.title()} Gate.')
+                 f' {gate_name.title()} Gate.')
 
     @strike.command(name='update')
-    @has_role('DM')
+    @has_role(ROLE)
     async def strike_update(self, ctx, rank_content):
         """Update your Strike Team queue entry."""
         embed = create_default_embed(ctx)
@@ -184,7 +186,7 @@ class StrikeQueue(commands.Cog):
         await ctx.send(embed=embed, delete_after=10)
 
     @strike.command(name='queue', aliases=['view'])
-    @has_role('DM')
+    @has_role(ROLE)
     async def strike_view(self, ctx):
         """Shows the Strike Team queue."""
         embed = await self.generate_embed()
@@ -192,8 +194,8 @@ class StrikeQueue(commands.Cog):
         await ctx.send(embed=embed)
 
     @strike.command(name='leave')
-    @has_role('DM')
-    async def dm_leave(self, ctx):
+    @has_role(ROLE)
+    async def strike_leave(self, ctx):
         """Leave the Strike Team queue."""
         embed = create_default_embed(ctx)
         embed.title = 'Strike Team Queue Left.'
