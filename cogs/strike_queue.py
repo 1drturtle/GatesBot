@@ -118,7 +118,7 @@ class StrikeQueue(commands.Cog):
         await ctx.send_help(self.strike)
 
     @strike.command(name='assign')
-    @has_role('Admin')
+    @has_role('DM')
     async def strike_assign(self, ctx, queue_nums: commands.Greedy[int], gate_name: str):
         """
         Assigns a Strike member to a group
