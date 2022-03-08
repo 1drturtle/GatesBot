@@ -12,7 +12,7 @@ import utils.config as config
 from utils.functions import try_delete
 
 COGS = {'cogs.util', 'jishaku', 'cogs.queue', 'cogs.gates', 'cogs.schedule',
-        'cogs.errors', 'cogs.admin', 'cogs.help', 'cogs.dm_queue', 'cogs.strike_queue'}
+        'cogs.errors', 'cogs.admin', 'cogs.help', 'cogs.dm_queue', 'cogs.strike_queue', 'cogs.tracker'}
 
 
 async def get_prefix(client, message):
@@ -73,9 +73,9 @@ logger.addHandler(handler)
 log = logging.getLogger('bot')
 
 # Make discord logs a bit quieter
-logging.getLogger('discord.gateway').setLevel(logging.WARNING)
-logging.getLogger('discord.client').setLevel(logging.WARNING)
-logging.getLogger('discord.http').setLevel(logging.INFO)
+logging.getLogger('disnake.gateway').setLevel(logging.WARNING)
+logging.getLogger('disnake.client').setLevel(logging.WARNING)
+logging.getLogger('disnake.http').setLevel(logging.INFO)
 
 
 @bot.event

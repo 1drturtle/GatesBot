@@ -1,5 +1,5 @@
 # Core (Discord)
-discord.py==1.7.1
+disnake[discord]
 git+https://github.com/Rapptz/discord-ext-menus
 
 # Time

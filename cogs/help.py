@@ -64,7 +64,7 @@ class CustomHelp(commands.HelpCommand):
         title = 'GatesBot Help'
         description = self.cog.bot.description
         footer = f'An underlined command has sub-commands.\n' \
-                 f'See {self.clean_prefix}help <command name> for more details on individual commands.'
+                 f'See {self.context.clean_prefix}help <command name> for more details on individual commands.'
         filtered_mapping = []
         for cog in mapping:
             command_list = await self.filter_commands(mapping[cog], sort=True)
@@ -82,7 +82,7 @@ class CustomHelp(commands.HelpCommand):
         embed = create_default_embed(self.context)
         title = f'GatesBot Help - `{cog.qualified_name}`'.strip()
         footer = f'An underlined command has sub-commands.\n' \
-                 f'See {self.clean_prefix}help <command name> for more details on individual commands.'
+                 f'See {self.context.clean_prefix}help <command name> for more details on individual commands.'
         command_list = await self.filter_commands(cog.get_commands(), sort=True)
         embed.description = cog.description or 'No description specified.'
         out = generate_command_names(command_list)
@@ -96,7 +96,7 @@ class CustomHelp(commands.HelpCommand):
         to_send = self.get_destination()
         title = f'GatesBot Help - `{self.get_command_signature(group)}`'.strip()
         footer = f'An underlined command has sub-commands.\n' \
-                 f'See {self.clean_prefix}help <command name> for more details on individual commands.'
+                 f'See {self.context.clean_prefix}help <command name> for more details on individual commands.'
         command_list = await self.filter_commands(group.commands, sort=True)
         out = generate_command_names(command_list, short_doc=True)
 
@@ -111,7 +111,7 @@ class CustomHelp(commands.HelpCommand):
         embed.title = f'GatesBot Help - `{self.get_command_signature(command).strip()}`'
         embed.description = command.help or 'No help specified.'
         embed.set_footer(text=f'An underlined command has subcommands.\n'
-                              f'See {self.clean_prefix}help <command name> for more details '
+                              f'See {self.context.clean_prefix}help <command name> for more details '
                               f'on individual commands')
         await to_send.send(embed=embed)
 
