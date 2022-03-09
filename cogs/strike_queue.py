@@ -27,6 +27,7 @@ class StrikeQueue(commands.Cog):
 
         self.db = self.bot.mdb['strike_queue']
         self.gate_db = bot.mdb['gate_list']
+        self.data_db = self.bot.mdb['queue_analytics']
 
     async def cog_check(self, ctx):
         if not ctx.guild:
@@ -59,6 +60,14 @@ class StrikeQueue(commands.Cog):
         await self.db.update_one(
             {'_id': msg.author.id}, content, upsert=True
         )
+
+        # old_roles_data = await self.data_db.find_one(
+        #     {'user_id': msg.author.id},
+        # )
+        # if old_roles_data and (old_role_name := old_roles_data.get('last_strike')):
+        #     role = discord.utils.find(lambda r: r.name == old_role_name, msg.guild.roles)
+        #     if role:
+        #         await msg.author.remove_role(role, reason='Strike team signup, removing last role.')
 
         try:
             await msg.add_reaction('\U0001f44d')
@@ -158,6 +167,12 @@ class StrikeQueue(commands.Cog):
               f' from the list and head over to the gate!'
 
         await ch.send(msg, allowed_mentions=discord.AllowedMentions(users=True))
+
+        for p in people:
+            await self.data_db.update_one({'_id': p.get('_id')}, {'$set': {'last_strike': gate_name}})
+            # role = discord.utils.find(lambda r: r.name == f'{gate_name.title()} Gate', ctx.guild.roles)
+            # if role:
+            #     await p.add_roles(role, reason='Strike Queue Signup, adding role.')
 
         for person in dms:
             await self.db.delete_one({'_id': person.get('_id')})

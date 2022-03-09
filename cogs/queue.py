@@ -173,6 +173,14 @@ class QueueChannel(commands.Cog):
             new_group = Group.new(player.tier, [player])
             queue.groups.append(new_group)
 
+        # remove old role
+        # old_data = await self.data_db.find_one({'user_id': message.author.id})
+        # if old_data:
+        #     old_role = discord.utils.find(lambda x: x.name == f"{old_data['last_gate_name'].title()} Gate",
+        #                                   message.guild.roles)
+        #     if old_role:
+        #         await message.author.remove_roles(old_role, reason='User signed-up in queue, removing old role.')
+
         # update analytics
         data = {
             '$set': {
@@ -360,6 +368,11 @@ class QueueChannel(commands.Cog):
         assignments_str = f"<#{assignments_ch.id}>" if assignments_ch is not None else "#gate-assignments-v2"
 
         out_players = sorted(popped.players, key=lambda x: x.member.display_name)
+
+        # gate_role = discord.utils.find(lambda x: x.name == f'{gate_name.title()} Gate', serv.roles)
+        #
+        # for player in out_players:
+        #     await player.member.add_roles(gate_role, reason='Automatic Gate Assignment')
 
         if summons_ch is not None:
             msg = ', '.join([p.mention for p in out_players]) + '\n'
