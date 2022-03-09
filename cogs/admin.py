@@ -28,12 +28,10 @@ class Admin(commands.Cog):
         """
         Stops the bot, restarting it.
         """
-        confirm = await ctx.prompt('Are you sure you want to shutdown the bot?')
-        if confirm:
-            try:
-                await self.bot.logout()
-            except RuntimeError:
-                pass
+        try:
+            await self.bot.logout()
+        except RuntimeError:
+            pass
 
     @admin.command(name='leave')
     @commands.is_owner()

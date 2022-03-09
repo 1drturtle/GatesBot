@@ -5,7 +5,7 @@ import psutil
 from discord.ext import commands
 import discord
 
-from utils.functions import create_default_embed
+from utils.functions import create_default_embed, try_delete
 from utils.constants import DATE_FORMAT, VERSION
 
 
@@ -69,6 +69,7 @@ class Utility(commands.Cog):
         out = repeat
         if ctx.author.id != self.bot.dev_id:
             out = f'{ctx.author.display_name}: ' + repeat
+        await try_delete(ctx.message)
         return await ctx.send(out)
 
     @commands.command(name='hexcolor', aliases=['color'])
@@ -169,7 +170,7 @@ class Utility(commands.Cog):
                    f'{len([c for c in guild.channels if isinstance(c, discord.TextChannel)])} text channels, ' \
                    f'{len([c for c in guild.channels if isinstance(c, discord.VoiceChannel)])} voice channels.'
         embed.add_field(name='Channel Info', value=channels)
-        embed.set_thumbnail(url=str(guild.icon_url))
+        embed.set_thumbnail(url=str(guild.icon))
 
         return await ctx.send(embed=embed, allowed_mentions=None)
 
