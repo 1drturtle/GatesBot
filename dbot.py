@@ -11,8 +11,19 @@ import asyncio
 import utils.config as config
 from utils.functions import try_delete
 
-COGS = {'cogs.util', 'jishaku', 'cogs.queue', 'cogs.gates', 'cogs.schedule',
-        'cogs.errors', 'cogs.admin', 'cogs.help', 'cogs.dm_queue', 'cogs.strike_queue', 'cogs.tracker'}
+COGS = {
+    "cogs.util",
+    "jishaku",
+    "cogs.queue",
+    "cogs.gates",
+    "cogs.schedule",
+    "cogs.errors",
+    "cogs.admin",
+    "cogs.help",
+    "cogs.dm_queue",
+    "cogs.strike_queue",
+    "cogs.tracker",
+}
 
 
 async def get_prefix(client, message):
@@ -22,9 +33,9 @@ async def get_prefix(client, message):
     if guild_id in client.prefixes:
         prefix = client.prefixes.get(guild_id, config.PREFIX)
     else:
-        dbsearch = await client.mdb['prefixes'].find_one({'guild_id': guild_id})
+        dbsearch = await client.mdb["prefixes"].find_one({"guild_id": guild_id})
         if dbsearch is not None:
-            prefix = dbsearch.get('prefix', config.PREFIX)
+            prefix = dbsearch.get("prefix", config.PREFIX)
         else:
             prefix = config.PREFIX
         client.prefixes[guild_id] = prefix
@@ -32,7 +43,7 @@ async def get_prefix(client, message):
 
 
 class GatesBot(commands.Bot):
-    def __init__(self, command_prefix=get_prefix, desc: str = '', **options):
+    def __init__(self, command_prefix=get_prefix, desc: str = "", **options):
         self.launch_time = datetime.utcnow()
         self.ready_time = None
         self._dev_id = config.DEV_ID
@@ -60,22 +71,22 @@ class GatesBot(commands.Bot):
 
 intents = discord.Intents(guilds=True, members=True, messages=True, reactions=True)
 
-description = 'Bot made for The Gates D&D Server.'
+description = "Bot made for The Gates D&D Server."
 
 bot = GatesBot(desc=description, intents=intents, allowed_mentions=discord.AllowedMentions.none())
 
-log_formatter = logging.Formatter('%(levelname)s | %(name)s: %(message)s')
+log_formatter = logging.Formatter("%(levelname)s | %(name)s: %(message)s")
 handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(log_formatter)
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG if config.ENVIRONMENT == 'testing' else logging.INFO)
+logger.setLevel(logging.DEBUG if config.ENVIRONMENT == "testing" else logging.INFO)
 logger.addHandler(handler)
-log = logging.getLogger('bot')
+log = logging.getLogger("bot")
 
 # Make discord logs a bit quieter
-logging.getLogger('disnake.gateway').setLevel(logging.WARNING)
-logging.getLogger('disnake.client').setLevel(logging.WARNING)
-logging.getLogger('disnake.http').setLevel(logging.INFO)
+logging.getLogger("disnake.gateway").setLevel(logging.WARNING)
+logging.getLogger("disnake.client").setLevel(logging.WARNING)
+logging.getLogger("disnake.http").setLevel(logging.INFO)
 
 
 @bot.event
@@ -83,11 +94,13 @@ async def on_ready():
 
     bot.ready_time = datetime.utcnow()
 
-    ready_message = f'\n---------------------------------------------------\n' \
-                    f'Bot Ready!\n' \
-                    f'Logged in as {bot.user.name} (ID: {bot.user.id})\n' \
-                    f'Current Prefix: {config.PREFIX}\n' \
-                    f'---------------------------------------------------'
+    ready_message = (
+        f"\n---------------------------------------------------\n"
+        f"Bot Ready!\n"
+        f"Logged in as {bot.user.name} (ID: {bot.user.id})\n"
+        f"Current Prefix: {config.PREFIX}\n"
+        f"---------------------------------------------------"
+    )
     log.info(ready_message)
 
 
@@ -106,7 +119,7 @@ async def on_message(message):
 
 @bot.event
 async def on_command(ctx):
-    if ctx.command.name in ['py', 'pyi', 'sh']:
+    if ctx.command.name in ["py", "pyi", "sh"]:
         return
 
     await try_delete(ctx.message)
@@ -115,7 +128,7 @@ async def on_command(ctx):
 for cog in COGS:
     bot.load_extension(cog)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if config.SENTRY_URL is not None:
         bot.sentry = sentry_sdk.init(config.SENTRY_URL, traces_sample_rate=1)
 
