@@ -1,6 +1,6 @@
 from discord.ext import commands, menus
+
 from utils.functions import create_default_embed
-import discord
 
 
 class HelpCogMenu(menus.ListPageSource):

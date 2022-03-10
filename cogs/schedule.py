@@ -1,12 +1,11 @@
-import asyncio
 import logging
 
 import discord
 import pendulum
 from discord.ext import commands
 
-from utils.constants import SCHEDULE_CHANNEL, SCHEDULE_CHANNEL_DEBUG
 from utils.config import ENVIRONMENT
+from utils.constants import SCHEDULE_CHANNEL, SCHEDULE_CHANNEL_DEBUG
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +37,8 @@ class Schedule(commands.Cog):
                         f"Next at {next_msg.to_day_datetime_string()}"
                     )
                     await channel.send(
-                        "<@&773895151008874518> - don't forget to restock tattoos and scrolls via `!scroll` and `!tattoo` in <#813448793965068328>!",
+                        "<@&773895151008874518> - don't forget to restock tattoos "
+                        "and scrolls via `!scroll` and `!tattoo` in <#813448793965068328>!",
                         allowed_mentions=discord.AllowedMentions(roles=True),
                     )
                 else:

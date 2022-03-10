@@ -1,12 +1,12 @@
 import os
 from datetime import datetime
 
+import discord
 import psutil
 from discord.ext import commands
-import discord
 
-from utils.functions import create_default_embed, try_delete
 from utils.constants import DATE_FORMAT, VERSION
+from utils.functions import create_default_embed, try_delete
 
 
 def time_to_readable(delta_uptime):

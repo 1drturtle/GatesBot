@@ -1,16 +1,14 @@
-from discord.ext import commands
-from discord.ext import tasks
-import discord
 import datetime
 import logging
-import pendulum
-
 from collections import namedtuple
-from utils.functions import create_default_embed
-from utils.checks import has_role
+
+import discord
+from discord.ext import commands
+from discord.ext import tasks
+
 from utils import constants as constants
-import typing
-from tabulate import tabulate
+from utils.checks import has_role
+from utils.functions import create_default_embed
 
 PLACEHOLDER_POLL_TIME = 300
 
@@ -151,7 +149,8 @@ class Gates(commands.Cog):
     @commands.command(name="updatetime")
     async def placeholder_update_setting(self, ctx, hours: int = None):
         """
-        Sets the amount of hours to wait before sending a placeholder notification. If no argument is specified, shows the current setting.
+        Sets the amount of hours to wait before sending a placeholder notification. If no argument is specified,
+        shows the current setting.
 
         `hours` - Number of hours to wait. Must be greater than or equal to one.
         """

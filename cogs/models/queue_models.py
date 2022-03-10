@@ -1,5 +1,3 @@
-import operator
-
 import discord
 
 from utils.constants import GROUP_SIZE, DEV_ID

@@ -1,14 +1,13 @@
+import asyncio
+import logging
+
+import discord
 import pymongo
 from discord.ext import commands
-import discord
 
 import utils.constants as constants
-import logging
-from utils.functions import create_queue_embed, try_delete, create_default_embed
 from utils.checks import has_role
-import asyncio
-from cogs.queue import queue_from_guild, length_check
-from cogs.models.queue_models import Queue
+from utils.functions import create_queue_embed, try_delete, create_default_embed
 
 log = logging.getLogger(__name__)
 

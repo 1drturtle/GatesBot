@@ -4,6 +4,7 @@ import random
 import re
 
 import discord
+import disnake
 import pendulum
 from discord.ext import commands
 from discord.ext import tasks
@@ -156,9 +157,9 @@ class QueueChannel(commands.Cog):
             if not self.bot.environment == "testing":
                 try:
                     await message.author.send("You are already in a queue!")
-                    await message.delete()
-                except:
+                except disnake.Forbidden:
                     pass
+                await try_delete(message)
                 return None
 
         # Can we fit in an existing group?

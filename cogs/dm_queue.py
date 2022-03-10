@@ -1,14 +1,16 @@
+import asyncio
+import logging
+
+import discord
+import disnake
 import pymongo
 from discord.ext import commands
-import discord
 
 import utils.constants as constants
-import logging
-from utils.functions import create_queue_embed, try_delete, create_default_embed
-from utils.checks import has_role
-import asyncio
-from cogs.queue import queue_from_guild, length_check
 from cogs.models.queue_models import Queue
+from cogs.queue import queue_from_guild, length_check
+from utils.checks import has_role
+from utils.functions import create_queue_embed, try_delete, create_default_embed
 
 log = logging.getLogger(__name__)
 
@@ -55,7 +57,7 @@ class DMQueue(commands.Cog):
 
         try:
             await msg.add_reaction("\U0001f44d")
-        except:
+        except (disnake.Forbidden, disnake.NotFound):
             pass
 
         await self.update_queue()
@@ -127,7 +129,7 @@ class DMQueue(commands.Cog):
         if queue_num > (size := len(dm_data)):
             return await ctx.send(f"Invalid DM Queue number. Must be less than or equal to {size}")
         elif queue_num < 1:
-            return await ctx.send(f"Invalid DM Queue number. Must be at least 1.")
+            return await ctx.send("Invalid DM Queue number. Must be at least 1.")
 
         dm = dm_data[(queue_num - 1)]
         who = ctx.guild.get_member(dm.get("_id"))

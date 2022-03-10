@@ -1,6 +1,5 @@
-from discord.ext import commands
 import discord
-from utils.functions import create_default_embed
+from discord.ext import commands
 
 
 def channel_id_to_link(channel_id):

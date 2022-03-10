@@ -1,11 +1,10 @@
-import discord
+import logging
 import traceback
-import sys
-from discord.ext import commands
 from datetime import timedelta
 
+import discord
 import sentry_sdk
-import logging
+from discord.ext import commands
 
 log = logging.getLogger(__name__)
 
