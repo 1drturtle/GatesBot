@@ -65,9 +65,9 @@ class Admin(commands.Cog):
             if guild_id in self.bot.prefixes:
                 prefix = self.bot.prefixes.get(guild_id, self.bot.prefix)
             else:
-                dbsearch = await self.bot.mdb["prefixes"].find_one({"guild_id": guild_id})
-                if dbsearch is not None:
-                    prefix = dbsearch.get("prefix", self.bot.prefix)
+                db_search = await self.bot.mdb["prefixes"].find_one({"guild_id": guild_id})
+                if db_search is not None:
+                    prefix = db_search.get("prefix", self.bot.prefix)
                 else:
                     prefix = self.bot.prefix
                 self.bot.prefixes[guild_id] = prefix
