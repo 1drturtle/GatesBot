@@ -24,29 +24,25 @@ class Player:
 
     @classmethod
     def new(cls, member, classes):
-        if 'total_level' not in classes:
-            raise QueueException('No total level found.')
-        if 'classes' not in classes:
-            classes['classes'] = []
-        return cls(member, classes['total_level'], classes['classes'])
+        if "total_level" not in classes:
+            raise QueueException("No total level found.")
+        if "classes" not in classes:
+            classes["classes"] = []
+        return cls(member, classes["total_level"], classes["classes"])
 
     @classmethod
     def from_dict(cls, guild: discord.Guild, data: dict):
-        if 'total_level' not in data:
-            raise QueueException('No total level found.')
-        if 'classes' not in data:
-            data['classes'] = []
-        member = guild.get_member(data['member_id'])
+        if "total_level" not in data:
+            raise QueueException("No total level found.")
+        if "classes" not in data:
+            data["classes"] = []
+        member = guild.get_member(data["member_id"])
         if member is None:
             return None
-        return cls(member, data['total_level'], data['classes'])
+        return cls(member, data["total_level"], data["classes"])
 
     def to_dict(self):
-        return {
-            'total_level': self.total_level,
-            'classes': self.levels,
-            'member_id': self.member.id
-        }
+        return {"total_level": self.total_level, "classes": self.levels, "member_id": self.member.id}
 
     @property
     def total_level(self):
@@ -62,21 +58,21 @@ class Player:
 
     @property
     def mention(self):
-        return f'<@{self.member.id}>'
+        return f"<@{self.member.id}>"
 
     @property
     def level_str(self):
         out = []
         for level in self.levels:
-            out_str = ''
-            out_str += level['subclass'] + ' ' if level['subclass'] is not None else ''
-            out_str += level['class'] + ' ' if level['class'] is not None else '*None*'
-            out_str += str(level['level'])
+            out_str = ""
+            out_str += level["subclass"] + " " if level["subclass"] is not None else ""
+            out_str += level["class"] + " " if level["class"] is not None else "*None*"
+            out_str += str(level["level"])
             out.append(out_str)
-        return ' / '.join(out)
+        return " / ".join(out)
 
     def __repr__(self):
-        return f'<Player {self.member=}, {self.levels=}, {self.tier=}>'
+        return f"<Player {self.member=}, {self.levels=}, {self.tier=}>"
 
 
 class Group:
@@ -87,9 +83,9 @@ class Group:
 
     def to_dict(self) -> dict:
         return {
-            'players': [player.to_dict() for player in self.players if player is not None],
-            'tier': self.tier,
-            'position': self.position
+            "players": [player.to_dict() for player in self.players if player is not None],
+            "tier": self.tier,
+            "position": self.position,
         }
 
     @classmethod
@@ -99,16 +95,16 @@ class Group:
     @classmethod
     def from_dict(cls, guild: discord.Guild, data: dict):
         players = []
-        for item in data['players']:
+        for item in data["players"]:
             player = Player.from_dict(guild, item)
             if player is not None:
                 players.append(player)
-        tier = data['tier']
-        pos = data['position']
+        tier = data["tier"]
+        pos = data["position"]
         return cls(players=players, tier=tier, position=pos)
 
     def __repr__(self):
-        return f'<Group {self.players=}, {self.tier=}, {self.position=}>'
+        return f"<Group {self.players=}, {self.tier=}, {self.position=}>"
 
 
 class Queue:
@@ -119,14 +115,14 @@ class Queue:
 
     @classmethod
     def from_dict(cls, guild: discord.Guild, data: dict):
-        groups = [Group.from_dict(guild, x) for x in data['groups']]
-        return cls(groups=groups, server_id=data['server_id'], channel_id=data['channel_id'])
+        groups = [Group.from_dict(guild, x) for x in data["groups"]]
+        return cls(groups=groups, server_id=data["server_id"], channel_id=data["channel_id"])
 
     def to_dict(self):
         return {
-            'groups': [group.to_dict() for group in self.groups],
-            'server_id': self.server_id,
-            'channel_id': self.channel_id
+            "groups": [group.to_dict() for group in self.groups],
+            "server_id": self.server_id,
+            "channel_id": self.channel_id,
         }
 
     def generate_embed(self, bot) -> discord.Embed:
@@ -135,12 +131,16 @@ class Queue:
         # Sort Groups by Tier
         self.groups.sort(key=lambda x: x.tier)
 
-        embed.title = 'Gate Sign-Up List'
+        embed.title = "Gate Sign-Up List"
 
         for index, group in enumerate(self.groups):
-            embed.add_field(name=f'{index + 1}. Rank {group.tier}',
-                            value=', '.join([player.mention+('🐢' if player.member.id == DEV_ID else '')
-                                             for player in group.players]), inline=False)
+            embed.add_field(
+                name=f"{index + 1}. Rank {group.tier}",
+                value=", ".join(
+                    [player.mention + ("🐢" if player.member.id == DEV_ID else "") for player in group.players]
+                ),
+                inline=False,
+            )
 
         return embed
 
@@ -152,7 +152,7 @@ class Queue:
                 continue
 
             embed = msg.embeds[0]
-            if embed.title != 'Gate Sign-Up List':
+            if embed.title != "Gate Sign-Up List":
                 continue
 
             out = msg
@@ -170,10 +170,7 @@ class Queue:
 
         # DB Commit
         data = self.to_dict()
-        await db.update_one(
-            {'guild_id': self.server_id, 'channel_id': self.channel_id},
-            {'$set': data}, upsert=True
-        )
+        await db.update_one({"guild_id": self.server_id, "channel_id": self.channel_id}, {"$set": data}, upsert=True)
 
         # Make a new embed
         embed = self.generate_embed(bot)
@@ -202,4 +199,4 @@ class Queue:
         return sum([len(g.players) for g in self.groups])
 
     def __repr__(self):
-        return f'<Queue {self.groups=}, {self.server_id=}, {self.channel_id=}>'
+        return f"<Queue {self.groups=}, {self.server_id=}, {self.channel_id=}>"
