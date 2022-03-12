@@ -168,7 +168,7 @@ class StrikeQueue(commands.Cog):
         await ch.send(msg, allowed_mentions=discord.AllowedMentions(users=True))
 
         for p in people:
-            await self.data_db.update_one({"_id": p.get("_id")}, {"$set": {"last_strike": gate_name}})
+            await self.data_db.update_one({"_id": p.id}, {"$set": {"last_strike": gate_name}})
             # role = discord.utils.find(lambda r: r.name == f'{gate_name.title()} Gate', ctx.guild.roles)
             # if role:
             #     await p.add_roles(role, reason='Strike Queue Signup, adding role.')
