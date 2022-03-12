@@ -751,7 +751,7 @@ class QueueChannel(commands.Cog):
 
     # Owner/Admin Commands
     @commands.command(name="lock")
-    @commands.check_any(commands.is_owner(), has_role("Admin"))
+    @commands.check_any(commands.is_owner(), has_role("Assistant"))
     async def lockqueue(self, ctx, *, reason: str = None):
         """Locks the queue channel. Admin only."""
         # get the channel
@@ -788,7 +788,7 @@ class QueueChannel(commands.Cog):
 
     # Owner/Admin Commands
     @commands.command(name="unlock")
-    @commands.check_any(commands.is_owner(), has_role("Admin"))
+    @commands.check_any(commands.is_owner(), has_role("Assistant"))
     async def unlockqueue(self, ctx, *, reason: str = None):
         """Unlocks the queue channel. Admin only."""
         # get the channel
