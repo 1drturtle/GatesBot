@@ -8,10 +8,13 @@ import pymongo
 from discord.ext import commands
 
 import utils.constants as constants
-from cogs.models.queue_models import Queue
+from cogs.models.queue_models import Queue, Group
 from cogs.queue import queue_from_guild, length_check
-from utils.checks import has_role
+from utils.checks import has_role, has_any_role
 from utils.functions import create_queue_embed, try_delete, create_default_embed
+from collections import namedtuple
+
+GateGroup = namedtuple("GateGroup", "gate claimed name")
 
 log = logging.getLogger(__name__)
 
@@ -233,6 +236,63 @@ class DMQueue(commands.Cog):
             await self.update_queue()
 
         await ctx.send(embed=embed, delete_after=10)
+
+    async def load_recent_gates(self, who: discord.Member) -> list[GateGroup]:
+        dm_data = await self.dm_db.find_one({"_id": who.id})
+        if not dm_data:
+            raise commands.BadArgument(f"Member {who.mention} does not have DM stats.")
+
+        gates = []
+        for raw_data in dm_data.get("dm_gates"):
+            name = raw_data.pop("gate_name")
+            claimed = raw_data.pop("claimed_date")
+            raw_data["position"] = None
+            gate = Group.from_dict(self.bot.get_guild(self.server_id), raw_data)
+            gates.append(GateGroup(gate=gate, name=name, claimed=claimed))
+
+        return gates
+
+    @dm.command(name="stats")
+    @has_any_role(["DM", "Assistant"])
+    async def dm_stats(self, ctx, who: discord.Member = None):
+        """Get DM stats."""
+        if who is None:
+            who = ctx.author
+
+        embed = create_default_embed(
+            ctx,
+            title=f"{who.display_name}'s DM Stats",
+        )
+
+        # Overall Stats
+        dm_data = await self.dm_db.find_one({"_id": who.id})
+
+        embed.add_field(
+            name="DM Queue Stats",
+            value=f"**Queue Signups:** {dm_data['dm_queue']['signups']}\n"
+            f"**Queue Assignments:** {dm_data['dm_queue']['assignments']}\n"
+            f"**Last Signup:** <t:{int(dm_data['dm_queue']['last_signup'].replace(tzinfo=None).timestamp())}:f>",
+            inline=False,
+        )
+        embed.add_field(name="Gate Claim Stats", value="WIP", inline=False)
+
+        # Gate stats
+        gates = await self.load_recent_gates(who)
+
+        recent_gates = gates[-10:]
+        recent_gates.reverse()
+        gate_string = "\n".join(
+            f"{i+1}. Rank {x.gate.tier}, {len(x.gate.players)} players" for i, x in enumerate(recent_gates)
+        )
+        descriptor = (
+            f"For more info, run `{ctx.prefix}dm stats gate #`, where # is the gate number to get more information on."
+        )
+
+        embed.add_field(
+            name="Recent Gates (Most recent first)", value="```\n" + gate_string + "\n```\n" + descriptor, inline=False
+        )
+
+        await ctx.send(embed=embed)
 
 
 def setup(bot):
