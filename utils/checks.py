@@ -14,7 +14,7 @@ def has_role(role_name: str):
     return commands.check(predicate)
 
 
-def has_any_role(role_names: list[str]):
+def has_any_role(role_names):
 
     role_names = [r.lower() for r in role_names]
 
