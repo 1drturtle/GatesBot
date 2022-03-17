@@ -1,4 +1,4 @@
-FROM python:3.9.7-buster
+FROM python:3.8.6-buster
 
 RUN apt update
 RUN apt install procinfo
