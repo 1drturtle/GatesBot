@@ -238,7 +238,7 @@ class DMQueue(commands.Cog):
 
         await ctx.send(embed=embed, delete_after=10)
 
-    async def load_recent_gates(self, who: discord.Member, existing_data=None) -> list[GateGroup]:
+    async def load_recent_gates(self, who: discord.Member, existing_data=None):
         if existing_data is None:
             dm_data = await self.dm_db.find_one({"_id": who.id})
         else:
