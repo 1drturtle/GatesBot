@@ -329,6 +329,10 @@ class DMQueue(commands.Cog):
         except IndexError:
             raise commands.BadArgument(f"Gate number must exist. See `{ctx.prefix}dm stats` for gate numbers.")
 
+        # TODO: Print general info (time claimed, rank #)
+        # TODO: Player print using Group function
+        # TODO: Format into embed
+
         print(gate)
 
         await ctx.send(embed=embed)
