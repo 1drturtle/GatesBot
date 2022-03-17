@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import logging
 
 import discord
@@ -30,6 +31,8 @@ class DMQueue(commands.Cog):
         self.server_id = constants.GATES_SERVER if self.bot.environment != "testing" else constants.DEBUG_SERVER
 
         self.db = self.bot.mdb["dm_queue"]
+        self.dm_db = self.bot.mdb["dm_analytics"]
+        self.assign_data_db = self.bot.mdb["dm_assign_analytics"]
 
     async def cog_check(self, ctx):
         if not ctx.guild:
@@ -54,6 +57,11 @@ class DMQueue(commands.Cog):
         content = {"$set": {"ranks": rank_content, "msg": msg.id}, "$currentDate": {"readyOn": True}}
 
         await self.db.update_one({"_id": msg.author.id}, content, upsert=True)
+        await self.dm_db.update_one(
+            {"_id": msg.author.id},
+            {"$inc": {"dm_queue.signups": 1}, "$currentDate": {"dm_queue.last_signup": True}},
+            upsert=True,
+        )
 
         try:
             await msg.add_reaction("\U0001f44d")
@@ -164,6 +172,19 @@ class DMQueue(commands.Cog):
         )
         await ch.send(embed=embed2)
         await ch.send(f"{who.mention}", embed=embed, allowed_mentions=discord.AllowedMentions(users=True))
+
+        analytics_data = {
+            "summoner": ctx.author.id,
+            "dm": who.id,
+            "gate_data": group.to_dict(),
+            "claimed": False,
+            "summonDate": datetime.datetime.utcnow(),
+        }
+        await self.assign_data_db.insert_one(analytics_data)
+        await self.dm_db.update_one(
+            {"_id": who.id},
+            {"$inc": {"dm_queue.assignments": 1}},
+        )
 
         await self.db.delete_one({"_id": who.id})
         await self.update_queue()

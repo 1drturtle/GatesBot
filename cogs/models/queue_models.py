@@ -101,6 +101,23 @@ class Group:
         pos = data["position"]
         return cls(players=players, tier=tier, position=pos)
 
+    @property
+    def player_levels(self) -> dict[int, int]:
+        out = dict()
+        for player in self.players:
+            out[player.total_level] = out.get(player.total_level, 0) + 1
+        return out
+
+    @property
+    def player_levels_str(self) -> str:
+        out = (
+            "`" * 3
+            + "diff\n"
+            + "\n".join([f"- {player.member.display_name}:" f" {player.level_str}" for player in self.players])
+            + "\n```"
+        )
+        return out
+
     def __repr__(self):
         return f"<Group {self.players=}, {self.tier=}, {self.position=}>"
 
