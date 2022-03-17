@@ -102,7 +102,7 @@ class Group:
         return cls(players=players, tier=tier, position=pos)
 
     @property
-    def player_levels(self) -> dict[int, int]:
+    def player_levels(self):
         out = dict()
         for player in self.players:
             out[player.total_level] = out.get(player.total_level, 0) + 1
