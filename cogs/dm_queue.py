@@ -13,6 +13,7 @@ from cogs.queue import queue_from_guild, length_check
 from utils.checks import has_role, has_any_role
 from utils.functions import create_queue_embed, try_delete, create_default_embed
 from collections import namedtuple
+import pendulum
 
 GateGroup = namedtuple("GateGroup", "gate claimed name")
 
@@ -237,8 +238,11 @@ class DMQueue(commands.Cog):
 
         await ctx.send(embed=embed, delete_after=10)
 
-    async def load_recent_gates(self, who: discord.Member) -> list[GateGroup]:
-        dm_data = await self.dm_db.find_one({"_id": who.id})
+    async def load_recent_gates(self, who: discord.Member, existing_data=None) -> list[GateGroup]:
+        if existing_data is None:
+            dm_data = await self.dm_db.find_one({"_id": who.id})
+        else:
+            dm_data = existing_data
         if not dm_data:
             raise commands.BadArgument(f"Member {who.mention} does not have DM stats.")
 
@@ -250,15 +254,16 @@ class DMQueue(commands.Cog):
             gate = Group.from_dict(self.bot.get_guild(self.server_id), raw_data)
             gates.append(GateGroup(gate=gate, name=name, claimed=claimed))
 
+        gates = gates[-1::]
+        gates.reverse()
         return gates
 
-    @dm.command(name="stats")
+    @dm.group(name="stats", invoke_without_command=True)
     @has_any_role(["DM", "Assistant"])
     async def dm_stats(self, ctx, who: discord.Member = None):
         """Get DM stats."""
         if who is None:
             who = ctx.author
-
         embed = create_default_embed(
             ctx,
             title=f"{who.display_name}'s DM Stats",
@@ -267,30 +272,64 @@ class DMQueue(commands.Cog):
         # Overall Stats
         dm_data = await self.dm_db.find_one({"_id": who.id})
 
-        embed.add_field(
-            name="DM Queue Stats",
-            value=f"**Queue Signups:** {dm_data['dm_queue']['signups']}\n"
-            f"**Queue Assignments:** {dm_data['dm_queue']['assignments']}\n"
-            f"**Last Signup:** <t:{int(dm_data['dm_queue']['last_signup'].replace(tzinfo=None).timestamp())}:f>",
-            inline=False,
-        )
-        embed.add_field(name="Gate Claim Stats", value="WIP", inline=False)
+        if "dm_queue" in dm_data:
+            last_signed = pendulum.instance(dm_data["dm_queue"]["last_signup"])
+
+            embed.add_field(
+                name="DM Queue Stats",
+                value=f"**Queue Signups:** {dm_data['dm_queue']['signups']}\n"
+                f"**Queue Assignments:** {dm_data['dm_queue']['assignments']}\n"
+                f"**Last Signup:** <t:{int(last_signed.timestamp())}:f>",
+                inline=False,
+            )
+        if "dm_claims" in dm_data:
+            last_claimed = pendulum.instance(dm_data["dm_claims"]["last_claim"])
+            embed.add_field(
+                name="Gate Claim Stats",
+                value=f"**Gate Claims:** {dm_data['dm_claims']['claims']}\n"
+                f"**Last Claim:** <t:{int(last_claimed.timestamp())}:f>",
+                inline=False,
+            )
 
         # Gate stats
-        gates = await self.load_recent_gates(who)
+        recent_gates = await self.load_recent_gates(who, existing_data=dm_data)
 
-        recent_gates = gates[-10:]
-        recent_gates.reverse()
         gate_string = "\n".join(
             f"{i+1}. Rank {x.gate.tier}, {len(x.gate.players)} players" for i, x in enumerate(recent_gates)
         )
         descriptor = (
-            f"For more info, run `{ctx.prefix}dm stats gate #`, where # is the gate number to get more information on."
+            f"For more info, run `{ctx.prefix}dm stats gate # [user mention]`, "
+            f"where # is the gate number to get more information on."
         )
 
         embed.add_field(
             name="Recent Gates (Most recent first)", value="```\n" + gate_string + "\n```\n" + descriptor, inline=False
         )
+
+        await ctx.send(embed=embed)
+
+    @dm_stats.command(name="gate")
+    @has_any_role(["DM", "Assistant"])
+    async def dm_stats_specific(self, ctx, gate_num: int, who: discord.Member = None):
+        """Get the stats on a specific gate number."""
+
+        if who is None:
+            who = ctx.author
+
+        embed = create_default_embed(
+            ctx,
+            title=f"{who.display_name}'s Gate #{gate_num} Stats",
+        )
+
+        # Overall Stats
+        gates = await self.load_recent_gates(who)
+
+        try:
+            gate = gates[gate_num - 1]
+        except IndexError:
+            raise commands.BadArgument(f"Gate number must exist. See `{ctx.prefix}dm stats` for gate numbers.")
+
+        print(gate)
 
         await ctx.send(embed=embed)
 
