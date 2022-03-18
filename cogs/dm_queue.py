@@ -185,10 +185,7 @@ class DMQueue(commands.Cog):
             "summonDate": datetime.datetime.utcnow(),
         }
         await self.assign_data_db.insert_one(analytics_data)
-        await self.dm_db.update_one(
-            {"_id": who.id},
-            {"$inc": {"dm_queue.assignments": 1}},
-        )
+        await self.dm_db.update_one({"_id": who.id}, {"$inc": {"dm_queue.assignments": 1}}, upsert=True)
 
         await self.db.delete_one({"_id": who.id})
         await self.update_queue()
