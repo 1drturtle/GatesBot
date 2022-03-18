@@ -327,8 +327,14 @@ class DMQueue(commands.Cog):
             raise commands.BadArgument(f"Gate number must exist. See `{ctx.prefix}dm stats` for gate numbers.")
 
         # TODO: Print general info (time claimed, rank #)
+        claimed = int(pendulum.instance(gate.claimed).timestamp())
+        embed.add_field(
+            name="Gate Info",
+            value=f"**Rank:** {gate.gate.tier}\n**Name:** {gate.name.title()} Gate\n**Claimed at:** <t:{claimed}:f>",
+            inline=False,
+        )
         # TODO: Player print using Group function
-        # TODO: Format into embed
+        embed.add_field(name="Players", value=gate.gate.player_levels_str, inline=False)
 
         print(gate)
 

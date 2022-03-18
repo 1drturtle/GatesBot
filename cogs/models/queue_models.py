@@ -103,7 +103,7 @@ class Group:
 
     @property
     def player_levels(self):
-        out = dict()
+        out = {}
         for player in self.players:
             out[player.total_level] = out.get(player.total_level, 0) + 1
         return out
