@@ -309,7 +309,6 @@ class QueueChannel(commands.Cog):
         popped: Group = queue.groups.pop(group - 1)
         await queue.update(self.bot, self.queue_db, serv.get_channel(self.channel_id))
 
-        # Spit out a summons to #gate-summons
         summons_channel_id = (
             constants.SUMMONS_CHANNEL if self.bot.environment != "testing" else constants.DEBUG_SUMMONS_CHANNEL
         )
@@ -338,7 +337,7 @@ class QueueChannel(commands.Cog):
             },
         )
 
-        # overview
+        # old analytics - overview
         gate_analytics_data = {
             "gate_name": gate["name"],
             "date_summoned": datetime.datetime.utcnow(),
@@ -347,7 +346,7 @@ class QueueChannel(commands.Cog):
             "levels": {},
         }
 
-        # player
+        # old analytics - player
         for player in popped.players:
             analytics_data = {
                 "$set": {"user_id": player.member.id, "last_gate_name": gate["name"]},
@@ -361,17 +360,25 @@ class QueueChannel(commands.Cog):
 
         await self.old_gates_db.insert_one(gate_analytics_data)
 
+        # set up summons and assignment channels
+
         summons_ch = serv.get_channel(summons_channel_id)
         assignments_ch = serv.get_channel(874795661198000208)
         assignments_str = f"<#{assignments_ch.id}>" if assignments_ch is not None else "#gate-assignments-v2"
 
+        # sort players by display name
         out_players = sorted(popped.players, key=lambda x: x.member.display_name)
 
+        # assign player roles (currently disbaled)
         # gate_role = discord.utils.find(lambda x: x.name == f'{gate_name.title()} Gate', serv.roles)
         #
         # for player in out_players:
         #     await player.member.add_roles(gate_role, reason='Automatic Gate Assignment')
 
+        # update DM gate ownership
+        await self.gate_list_db.update_one({"name": gate["name"]}, {"$set": {"owner": ctx.author.id}})
+
+        # send summon msg
         if summons_ch is not None:
             msg = ", ".join([p.mention for p in out_players]) + "\n"
             if not reinforcement:
