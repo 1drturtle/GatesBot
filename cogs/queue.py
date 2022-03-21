@@ -212,6 +212,8 @@ class QueueChannel(commands.Cog):
             return
 
         guild = self.bot.get_guild(payload.guild_id)
+        if not guild:
+            return
         channel = guild.get_channel(payload.channel_id)
         message = await channel.fetch_message(payload.message_id)
 
