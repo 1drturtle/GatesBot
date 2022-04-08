@@ -23,6 +23,7 @@ COGS = {
     "cogs.dm_queue",
     "cogs.strike_queue",
     "cogs.tracker",
+    "cogs.to-do",
 }
 
 
