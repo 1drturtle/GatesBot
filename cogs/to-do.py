@@ -3,6 +3,8 @@ from cogs.models.todo_views import TodoItem, PriorityConverter, MainMenuView
 from datetime import datetime
 from utils.functions import create_default_embed
 from utils.constants import PRIORITIES
+from utils.checks import has_role
+
 import typing
 
 
@@ -20,6 +22,7 @@ class ToDo(commands.Cog):
         return out
 
     @commands.group(name="todo", invoke_without_command=True)
+    @has_role("Assistant")
     async def _todo(self, ctx: commands.Context):
         """
         Show the current to-do list.
@@ -45,6 +48,7 @@ class ToDo(commands.Cog):
         await ctx.send(embed=embed, view=m_view)
 
     @_todo.command(name="create")
+    @has_role("Assistant")
     async def _todo_create(self, ctx: commands.Context, priority: PriorityConverter, *, content: str):
         """
         Create a new to-do list item.
