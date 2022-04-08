@@ -119,6 +119,11 @@ class MainMenuView(ViewBase):
         # make options
         data = list(filter(lambda x: x.priority.lower() == select.values[0].lower(), await self.fetch_items()))
 
+        if len(data) == 0:
+            await interaction.response.edit_message(view=None)
+            await interaction.send(content="You cannot select a priority with no items, exiting.", ephemeral=True)
+            return
+
         await interaction.response.edit_message(embed=new_embed, view=PriorityView(self.ctx, data))
 
 
@@ -135,14 +140,17 @@ class IndividualSelector(discord.ui.Select):
 
     async def callback(self, interaction: discord.MessageInteraction):
         # edit embed to individual view
-        next_view = IndividualView(self.ctx, self.data)
 
         value = self.values[0]
         n_value = int(value.lstrip("#").rstrip(".")) - 1
-        print(self.data[n_value])
-        next_embed = await next_view.edit_embed(interaction.message.embeds[0], self.data[n_value])
 
-        await interaction.response.edit_message(embed=next_embed, view=IndividualView(self.ctx, self.data))
+        n = self.data[n_value]
+
+        next_view = IndividualView(self.ctx, self.data, n)
+
+        next_embed = await next_view.edit_embed(interaction.message.embeds[0], n)
+
+        await interaction.response.edit_message(embed=next_embed, view=next_view)
 
 
 class PriorityView(ViewBase):
@@ -152,7 +160,7 @@ class PriorityView(ViewBase):
         self.add_item(IndividualSelector(ctx, items))
 
     @discord.ui.button(label="Go Back", style=discord.ButtonStyle.primary)
-    async def priority_select(self, button: discord.ui.Button, interaction: discord.MessageInteraction):
+    async def go_back(self, button: discord.ui.Button, interaction: discord.MessageInteraction):
         old_embed = interaction.message.embeds[0]
         new_embed = await self.generate_embed(old_embed)
 
@@ -160,19 +168,33 @@ class PriorityView(ViewBase):
 
 
 class IndividualView(ViewBase):
-    def __init__(self, ctx, items):
+    def __init__(self, ctx, items, item):
         super().__init__(ctx)
         self.items = items
+        self.current_item: TodoItem = item
 
     async def edit_embed(self, embed, item):
         embed.clear_fields()
-        embed.description = ""
+        embed.description = str(item)
 
         return embed
 
     @discord.ui.button(label="Go Back", style=discord.ButtonStyle.primary)
-    async def priority_select(self, button: discord.ui.Button, interaction: discord.MessageInteraction):
+    async def go_back(self, _, interaction: discord.MessageInteraction):
         old_embed = interaction.message.embeds[0]
         new_embed = await self.generate_embed(old_embed)
 
         await interaction.response.edit_message(embed=new_embed, view=PriorityView(self.ctx, self.items))
+
+    @discord.ui.button(label="Archive", style=discord.ButtonStyle.red)
+    async def archive_button(self, _, interaction: discord.MessageInteraction):
+
+        await self.bot.mdb["todo_list"].update_one(
+            {"owner_id": self.current_item.owner_id, "content": self.current_item.content}, {"$set": {"archived": True}}
+        )
+
+        old_embed = interaction.message.embeds[0]
+        new_embed = await self.generate_embed(old_embed)
+
+        await interaction.response.edit_message(embed=new_embed, view=MainMenuView(self.ctx))
+        await interaction.send(content="To-do item archived! Returned to main menu", ephemeral=True)
