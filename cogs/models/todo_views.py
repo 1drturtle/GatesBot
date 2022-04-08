@@ -1,9 +1,13 @@
+import asyncio
+import contextlib
+import typing
+
 import discord.ui
 import disnake
-from disnake.ext import commands
 import pendulum
+from disnake.ext import commands
+
 from utils.constants import PRIORITIES
-import typing
 
 
 class TodoItem:
@@ -97,6 +101,26 @@ class ViewBase(discord.ui.View):
             out.append(task)
         return out
 
+    async def prompt_message(
+        self, interaction: disnake.Interaction, prompt: str, ephemeral: bool = True, timeout: int = 60
+    ) -> typing.Optional[str]:
+        """
+        Send the user a prompt in the channel and return a value from their reply.
+        Returns None if the user did not reply before the timeout.
+        """
+        await interaction.send(prompt, ephemeral=ephemeral)
+        try:
+            input_msg: disnake.Message = await interaction.bot.wait_for(
+                "message",
+                timeout=timeout,
+                check=lambda msg: msg.author == interaction.author and msg.channel.id == interaction.channel_id,
+            )
+            with contextlib.suppress(disnake.HTTPException):
+                await input_msg.delete()
+            return input_msg.content
+        except asyncio.TimeoutError:
+            return None
+
     async def generate_embed(self, embed, select_prio=None, show_archived=False):
         embed.clear_fields()
         embed.description = ""
@@ -168,7 +192,7 @@ class IndividualSelector(discord.ui.Select):
 
         options = []
         for i, item in enumerate(data):
-            options.append(discord.SelectOption(label=f"#{i+1}.", description=item.content))
+            options.append(discord.SelectOption(label=f"#{i+1}.", description=item.short))
 
         super().__init__(placeholder="Select an item for more detail", options=options)
 
@@ -257,6 +281,23 @@ class IndividualView(ViewBase):
 
         await interaction.response.edit_message(
             embed=new_embed, view=PriorityView(self.ctx, self.items, priority=self.current_item.priority)
+        )
+
+    @discord.ui.button(label="Edit", style=discord.ButtonStyle.primary)
+    async def edit_button(self, _, interaction: discord.MessageInteraction):
+        new_content = await self.prompt_message(interaction, prompt="Send a message containing the new description.")
+
+        if not new_content:
+            return await interaction.send(content="Did not receive new to-do content", ephemeral=True)
+
+        self.current_item.content = new_content.strip()
+        await self.bot.mdb["todo_list"].update_one(
+            {"owner_id": self.current_item.owner_id, "content": self.current_item.content},
+            {"$set": {"content": new_content.strip()}},
+        )
+
+        await interaction.followup.send(
+            content="To-do item edited!\nUnfortunately due to discord limitations, this command was not edited."
         )
 
     @discord.ui.button(label="Archive", style=discord.ButtonStyle.red)
