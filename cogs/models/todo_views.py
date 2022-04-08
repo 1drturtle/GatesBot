@@ -142,7 +142,9 @@ class MainMenuView(ViewBase):
             )
         )
 
+        is_archived = False
         if len(data) == 0:
+            is_archived = True
             new_embed = await self.generate_embed(old_embed, select_prio=select.values[0], show_archived=True)
             new_embed.title += " - Archived"
             new_embed.description = "No un-archived tasks found. Showing archived only."
@@ -154,7 +156,7 @@ class MainMenuView(ViewBase):
                 return
 
         await interaction.response.edit_message(
-            embed=new_embed, view=PriorityView(self.ctx, data, priority=select.values[0])
+            embed=new_embed, view=PriorityView(self.ctx, data, priority=select.values[0], archived=is_archived)
         )
 
 
@@ -186,10 +188,12 @@ class IndividualSelector(discord.ui.Select):
 
 
 class PriorityView(ViewBase):
-    def __init__(self, ctx, items, priority=None):
+    def __init__(self, ctx, items, priority=None, archived=False):
         super().__init__(ctx)
         self.items = items
         self.priority = priority
+        self.archived = False
+        self.show_archived.disabled = archived
 
         if len(items) > 0:
             self.add_item(IndividualSelector(ctx, items))
@@ -232,6 +236,9 @@ class IndividualView(ViewBase):
     async def edit_embed(self, embed, item):
         embed.clear_fields()
         embed.description = str(item)
+        embed.title = f"Individual Item | {self.current_item.priority.title()} Priority" + (
+            " | Archived" if self.current_item.archived else ""
+        )
 
         return embed
 
