@@ -159,6 +159,10 @@ class PriorityView(ViewBase):
         self.items = items
         self.add_item(IndividualSelector(ctx, items))
 
+    @discord.ui.button(label="Show Archived", style=discord.ButtonStyle.primary)
+    async def show_archived(self, button: discord.ui.Button, interaction: discord.MessageInteraction):
+        raise NotImplementedError()
+
     @discord.ui.button(label="Go Back", style=discord.ButtonStyle.primary)
     async def go_back(self, button: discord.ui.Button, interaction: discord.MessageInteraction):
         old_embed = interaction.message.embeds[0]
