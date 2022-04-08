@@ -290,14 +290,15 @@ class IndividualView(ViewBase):
         if not new_content:
             return await interaction.send(content="Did not receive new to-do content", ephemeral=True)
 
-        self.current_item.content = new_content.strip()
         await self.bot.mdb["todo_list"].update_one(
             {"owner_id": self.current_item.owner_id, "content": self.current_item.content},
             {"$set": {"content": new_content.strip()}},
         )
+        self.current_item.content = new_content.strip()
 
         await interaction.followup.send(
-            content="To-do item edited!\nUnfortunately due to discord limitations, this command was not edited."
+            content="To-do item edited!\nUnfortunately due to discord limitations, this embed was not edited.",
+            ephemeral=True,
         )
 
     @discord.ui.button(label="Archive", style=discord.ButtonStyle.red)
