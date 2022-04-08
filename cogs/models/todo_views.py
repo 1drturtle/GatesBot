@@ -7,13 +7,24 @@ import typing
 
 
 class TodoItem:
-    def __init__(self, owner_id: int, created_on, priority: str, content: str, archived: bool = False):
+    def __init__(
+        self,
+        owner_id: int,
+        created_on,
+        priority: str,
+        content: str,
+        archived: bool = False,
+        archiver=None,
+        claimer=None,
+    ):
         self.owner_id = owner_id
         self.created_on = created_on
         self.created_on_string = f"<t:{int(pendulum.instance(created_on).timestamp())}:f>"
         self.priority = priority
         self.content = content
         self.archived = archived
+        self.archiver = archiver
+        self.claimer = claimer
 
     @classmethod
     def from_dict(cls, data: dict):
@@ -28,14 +39,18 @@ class TodoItem:
             "priority": self.priority,
             "content": self.content,
             "archived": self.archived,
+            "archiver": self.archiver,
+            "claimer": self.claimer,
         }
 
     def __str__(self):
         return (
-            f"**Priority:** {self.priority.title()}\n"
-            f"**Owner:** <@{self.owner_id}>\n"
-            f"**Creation Date:** {self.created_on_string}\n"
-            f"**Details:** {self.content}" + ("\n**Archived:** True" if self.archived else "")
+            f"**Priority:** {self.priority.title()}"
+            + f"\n**Owner:** <@{self.owner_id}>"
+            + (f"\n**Claimed By:** <@{self.claimer}>" if self.claimer else "")
+            + f"\n**Creation Date:** {self.created_on_string}"
+            + (f"\n**Archived By:** <@{self.archiver}>" if self.archiver else "")
+            + f"\n**Details:** {self.content}"
         )
 
     @property
@@ -74,15 +89,15 @@ class ViewBase(discord.ui.View):
         await interaction.response.send_message("You are not the owner of this menu.", ephemeral=True)
         return False
 
-    async def fetch_items(self) -> typing.List[TodoItem]:
+    async def fetch_items(self, archived=False) -> typing.List[TodoItem]:
         out = []
-        data = await self.bot.mdb["todo_list"].find({"archived": False}).to_list(length=None)
+        data = await self.bot.mdb["todo_list"].find().to_list(length=None)
         for item in data:
             task = TodoItem.from_dict(item)
             out.append(task)
         return out
 
-    async def generate_embed(self, embed, select_prio=None):
+    async def generate_embed(self, embed, select_prio=None, show_archived=False):
         embed.clear_fields()
         embed.description = ""
         tasks = await self.fetch_items()
@@ -95,7 +110,11 @@ class ViewBase(discord.ui.View):
         for priority in PRIORITIES:
             to_add = []
             for task in tasks:
-                if task.priority == priority.lower() and not task.archived:
+                if task.priority == priority.lower():
+                    if show_archived and not task.archived:
+                        continue
+                    if (not show_archived) and task.archived:
+                        continue
                     if select_prio and select_prio.lower() != task.priority.lower():
                         continue
                     to_add.append(task)
@@ -117,20 +136,33 @@ class MainMenuView(ViewBase):
         new_embed = await self.generate_embed(old_embed, select_prio=select.values[0])
 
         # make options
-        data = list(filter(lambda x: x.priority.lower() == select.values[0].lower(), await self.fetch_items()))
+        data = list(
+            filter(
+                lambda x: x.priority.lower() == select.values[0].lower() and not x.archived, await self.fetch_items()
+            )
+        )
 
         if len(data) == 0:
-            await interaction.response.edit_message(view=None)
-            await interaction.send(content="You cannot select a priority with no items, exiting.", ephemeral=True)
-            return
+            new_embed = await self.generate_embed(old_embed, select_prio=select.values[0], show_archived=True)
+            new_embed.title += " - Archived"
+            new_embed.description = "No un-archived tasks found. Showing archived only."
 
-        await interaction.response.edit_message(embed=new_embed, view=PriorityView(self.ctx, data))
+            data = list(filter(lambda x: x.priority.lower() == select.values[0].lower(), await self.fetch_items()))
+
+            if len(data) == 0:
+                await interaction.send(content="Could not find any to-do items in that category.", ephemeral=True)
+                return
+
+        await interaction.response.edit_message(
+            embed=new_embed, view=PriorityView(self.ctx, data, priority=select.values[0])
+        )
 
 
 class IndividualSelector(discord.ui.Select):
-    def __init__(self, ctx, data):
+    def __init__(self, ctx, data, priority=None):
         self.ctx = ctx
         self.data = data
+        self.priority = priority
 
         options = []
         for i, item in enumerate(data):
@@ -154,14 +186,29 @@ class IndividualSelector(discord.ui.Select):
 
 
 class PriorityView(ViewBase):
-    def __init__(self, ctx, items):
+    def __init__(self, ctx, items, priority=None):
         super().__init__(ctx)
         self.items = items
-        self.add_item(IndividualSelector(ctx, items))
+        self.priority = priority
+
+        if len(items) > 0:
+            self.add_item(IndividualSelector(ctx, items))
 
     @discord.ui.button(label="Show Archived", style=discord.ButtonStyle.primary)
     async def show_archived(self, button: discord.ui.Button, interaction: discord.MessageInteraction):
-        raise NotImplementedError()
+        old_embed = interaction.message.embeds[0]
+        new_embed = await self.generate_embed(old_embed, show_archived=True)
+
+        self.items = list(
+            filter(
+                lambda x: x.priority.lower() == (self.priority or self.items[0].priority.lower()) and x.archived,
+                await self.fetch_items(),
+            )
+        )
+
+        new_embed.title += " - Archived"
+
+        await interaction.response.edit_message(embed=new_embed, view=PriorityView(self.ctx, self.items))
 
     @discord.ui.button(label="Go Back", style=discord.ButtonStyle.primary)
     async def go_back(self, button: discord.ui.Button, interaction: discord.MessageInteraction):
@@ -177,6 +224,11 @@ class IndividualView(ViewBase):
         self.items = items
         self.current_item: TodoItem = item
 
+        self.archive_button.disabled = item.archived
+        self.unarchive_button.disabled = not item.archived
+        self.claim_button.disabled = item.claimer == ctx.author.id
+        self.unclaim_button.disabled = not self.claim_button.disabled
+
     async def edit_embed(self, embed, item):
         embed.clear_fields()
         embed.description = str(item)
@@ -187,18 +239,85 @@ class IndividualView(ViewBase):
     async def go_back(self, _, interaction: discord.MessageInteraction):
         old_embed = interaction.message.embeds[0]
         new_embed = await self.generate_embed(old_embed)
+        new_embed.title += f" - {self.current_item.priority.title()} Priority"
 
-        await interaction.response.edit_message(embed=new_embed, view=PriorityView(self.ctx, self.items))
+        self.items = list(
+            filter(
+                lambda x: x.priority.lower() == self.current_item.priority.lower() and not x.archived,
+                await self.fetch_items(),
+            )
+        )
+
+        await interaction.response.edit_message(
+            embed=new_embed, view=PriorityView(self.ctx, self.items, priority=self.current_item.priority)
+        )
 
     @discord.ui.button(label="Archive", style=discord.ButtonStyle.red)
     async def archive_button(self, _, interaction: discord.MessageInteraction):
 
         await self.bot.mdb["todo_list"].update_one(
-            {"owner_id": self.current_item.owner_id, "content": self.current_item.content}, {"$set": {"archived": True}}
+            {"owner_id": self.current_item.owner_id, "content": self.current_item.content},
+            {"$set": {"archived": True, "archiver": interaction.author.id}},
         )
 
-        old_embed = interaction.message.embeds[0]
-        new_embed = await self.generate_embed(old_embed)
+        self.current_item.archived = True
+        self.current_item.archiver = interaction.author.id
 
-        await interaction.response.edit_message(embed=new_embed, view=MainMenuView(self.ctx))
-        await interaction.send(content="To-do item archived! Returned to main menu", ephemeral=True)
+        old_embed = interaction.message.embeds[0]
+        new_embed = await self.edit_embed(old_embed, self.current_item)
+
+        await interaction.response.edit_message(
+            embed=new_embed, view=IndividualView(self.ctx, self.items, self.current_item)
+        )
+        await interaction.send(content="To-do item archived!", ephemeral=True)
+
+    @discord.ui.button(label="Un-archive", style=discord.ButtonStyle.red)
+    async def unarchive_button(self, _, interaction: discord.MessageInteraction):
+
+        await self.bot.mdb["todo_list"].update_one(
+            {"owner_id": self.current_item.owner_id, "content": self.current_item.content},
+            {"$set": {"archived": False}, "$unset": {"archiver": True}},
+        )
+
+        self.current_item.archived = False
+        self.current_item.archiver = None
+
+        old_embed = interaction.message.embeds[0]
+        new_embed = await self.edit_embed(old_embed, self.current_item)
+
+        await interaction.response.edit_message(
+            embed=new_embed, view=IndividualView(self.ctx, self.items, self.current_item)
+        )
+        await interaction.send(content="To-do item un-archived!", ephemeral=True)
+
+    @discord.ui.button(label="Claim", style=discord.ButtonStyle.green, row=2)
+    async def claim_button(self, _, interaction: discord.MessageInteraction):
+        await self.bot.mdb["todo_list"].update_one(
+            {"owner_id": self.current_item.owner_id, "content": self.current_item.content},
+            {"$set": {"claimer": interaction.author.id}},
+        )
+        self.current_item.claimer = interaction.author.id
+
+        old_embed = interaction.message.embeds[0]
+        new_embed = await self.edit_embed(old_embed, self.current_item)
+
+        await interaction.response.edit_message(
+            embed=new_embed, view=IndividualView(self.ctx, self.items, self.current_item)
+        )
+        await interaction.send(content="To-do item claimed!", ephemeral=True)
+
+    @discord.ui.button(label="Un-claim", style=discord.ButtonStyle.red, row=2)
+    async def unclaim_button(self, _, interaction: discord.MessageInteraction):
+        await self.bot.mdb["todo_list"].update_one(
+            {"owner_id": self.current_item.owner_id, "content": self.current_item.content},
+            {"$unset": {"claimer": True}},
+        )
+        self.current_item.claimer = None
+
+        old_embed = interaction.message.embeds[0]
+        new_embed = await self.edit_embed(old_embed, self.current_item)
+
+        await interaction.response.edit_message(
+            embed=new_embed, view=IndividualView(self.ctx, self.items, self.current_item)
+        )
+        await interaction.send(content="To-do item un-claimed!", ephemeral=True)
