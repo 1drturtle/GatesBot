@@ -16,6 +16,7 @@ class TodoItem:
         owner_id: int,
         created_on,
         priority: str,
+        title: str,
         content: str,
         archived: bool = False,
         archiver=None,
@@ -25,6 +26,7 @@ class TodoItem:
         self.created_on = created_on
         self.created_on_string = f"<t:{int(pendulum.instance(created_on).timestamp())}:f>"
         self.priority = priority
+        self.title = title
         self.content = content
         self.archived = archived
         self.archiver = archiver
@@ -41,6 +43,7 @@ class TodoItem:
             "owner_id": self.owner_id,
             "created_on": self.created_on,
             "priority": self.priority,
+            "title": self.title,
             "content": self.content,
             "archived": self.archived,
             "archiver": self.archiver,
@@ -54,6 +57,7 @@ class TodoItem:
             + (f"\n**Claimed By:** <@{self.claimer}>" if self.claimer else "")
             + f"\n**Creation Date:** {self.created_on_string}"
             + (f"\n**Archived By:** <@{self.archiver}>" if self.archiver else "")
+            + f"\n**Title:** {self.title}"
             + f"\n**Details:** {self.content}"
         )
 
@@ -145,11 +149,16 @@ class ViewBase(discord.ui.View):
             if to_add:
                 embed.add_field(
                     name=priority,
-                    value="```\n" + "\n".join((f"{i + 1}. {x.content}" for i, x in enumerate(to_add))) + "\n```",
+                    value="```\n" + "\n".join((f"{i + 1}. {x.title}" for i, x in enumerate(to_add))) + "\n```",
                     inline=False,
                 )
 
         return embed
+
+    async def tasks_edited(self):
+        # TODO: Delete previous overall message
+        # TODO: Generate new message from task DB
+        pass
 
 
 class MainMenuView(ViewBase):
@@ -192,7 +201,7 @@ class IndividualSelector(discord.ui.Select):
 
         options = []
         for i, item in enumerate(data):
-            options.append(discord.SelectOption(label=f"#{i+1}.", description=item.short))
+            options.append(discord.SelectOption(label=f"#{i+1}.", description=item.title))
 
         super().__init__(placeholder="Select an item for more detail", options=options)
 

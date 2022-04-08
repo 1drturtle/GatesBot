@@ -41,7 +41,7 @@ class ToDo(commands.Cog):
             if to_add:
                 embed.add_field(
                     name=priority,
-                    value="```\n" + "\n".join((f"{i + 1}. {x.short}" for i, x in enumerate(to_add))) + "\n```",
+                    value="```\n" + "\n".join((f"{i + 1}. {x.title}" for i, x in enumerate(to_add))) + "\n```",
                     inline=False,
                 )
 
@@ -49,7 +49,7 @@ class ToDo(commands.Cog):
 
     @_todo.command(name="create")
     @has_role("Assistant")
-    async def _todo_create(self, ctx: commands.Context, priority: PriorityConverter, *, content: str):
+    async def _todo_create(self, ctx: commands.Context, priority: PriorityConverter, title: str, *, content: str):
         """
         Create a new to-do list item.
         """
@@ -61,7 +61,7 @@ class ToDo(commands.Cog):
 
         now = datetime.utcnow()
 
-        todo_item = TodoItem(owner_id=ctx.author.id, created_on=now, priority=priority, content=content)
+        todo_item = TodoItem(owner_id=ctx.author.id, created_on=now, priority=priority, title=title, content=content)
 
         await self.db.insert_one(todo_item.to_dict())
 
