@@ -92,8 +92,11 @@ class ViewBase(discord.ui.View):
         self.ctx = ctx
         self.owner = ctx.author
         self.bot = ctx.bot
-        self.channel_id = constants.TODO_LIST_CHANNEL_ID_DEBUG if self.bot.environment == "testing" \
+        self.channel_id = (
+            constants.TODO_LIST_CHANNEL_ID_DEBUG
+            if self.bot.environment == "testing"
             else constants.TODO_LIST_CHANNEL_ID
+        )
 
     async def interaction_check(self, interaction: disnake.Interaction) -> bool:
         if interaction.user.id == self.owner.id:
@@ -175,13 +178,11 @@ class ViewBase(discord.ui.View):
         return out
 
     async def tasks_edited(self):
-        # TODO: Delete previous overall message
         channel = self.bot.get_channel(self.channel_id)
         msg = await self._get_message(channel)
         if msg:
             await try_delete(msg)
 
-        # TODO: Generate new message from task DB
         embed = create_queue_embed(self.bot)
         embed = await self.generate_embed(embed)
 
@@ -219,16 +220,16 @@ class MainMenuView(ViewBase):
             embed=new_embed, view=PriorityView(self.ctx, data, priority=select.values[0], archived=is_archived)
         )
 
-    @discord.ui.button(label='Dump', style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="Dump", style=discord.ButtonStyle.danger)
     async def dump_button(self, _, interaction: discord.MessageInteraction):
-        archived = list(filter(lambda x: not x.archived,    await self.fetch_items()))
+        archived = list(filter(lambda x: not x.archived, await self.fetch_items()))
         pag = commands.Paginator()
         for prio in PRIORITIES:
-            pag.add_line(f'{prio.title()}')
-            pag.add_line('-'*(len(prio)))
+            pag.add_line(f"{prio.title()}")
+            pag.add_line("-" * (len(prio)))
             for i, task in enumerate(filter(lambda x: x.priority == prio.lower(), archived)):
-                pag.add_line(f'{i+1}. {task.title}: {task.content}')
-            pag.add_line('')
+                pag.add_line(f"{i+1}. {task.title}: {task.content}")
+            pag.add_line("")
         for page in pag.pages:
             await interaction.send(content=page)
 
@@ -370,7 +371,7 @@ class IndividualView(ViewBase):
             ephemeral=True,
         )
 
-    @discord.ui.select(placeholder='Select new priority', options=PRIORITY_OPTIONS)
+    @discord.ui.select(placeholder="Select new priority", options=PRIORITY_OPTIONS)
     async def change_priority_selector(self, select: discord.ui.Select, interaction: discord.MessageInteraction):
 
         await self.bot.mdb["todo_list"].update_one(
