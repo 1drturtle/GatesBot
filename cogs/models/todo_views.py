@@ -8,6 +8,8 @@ import pendulum
 from disnake.ext import commands
 
 from utils.constants import PRIORITIES
+from utils.functions import create_queue_embed, try_delete
+import utils.constants as constants
 
 
 class TodoItem:
@@ -90,6 +92,8 @@ class ViewBase(discord.ui.View):
         self.ctx = ctx
         self.owner = ctx.author
         self.bot = ctx.bot
+        self.channel_id = constants.TODO_LIST_CHANNEL_ID_DEBUG if self.bot.environment == "testing" \
+            else constants.TODO_LIST_CHANNEL_ID
 
     async def interaction_check(self, interaction: disnake.Interaction) -> bool:
         if interaction.user.id == self.owner.id:
@@ -97,7 +101,7 @@ class ViewBase(discord.ui.View):
         await interaction.response.send_message("You are not the owner of this menu.", ephemeral=True)
         return False
 
-    async def fetch_items(self, archived=False) -> typing.List[TodoItem]:
+    async def fetch_items(self) -> typing.List[TodoItem]:
         out = []
         data = await self.bot.mdb["todo_list"].find().to_list(length=None)
         for item in data:
@@ -155,10 +159,33 @@ class ViewBase(discord.ui.View):
 
         return embed
 
+    async def _get_message(self, channel):
+        history = await channel.history(limit=50).flatten()
+        out = None
+        for msg in history:
+            if len(msg.embeds) != 1:
+                continue
+
+            embed = msg.embeds[0]
+            if not embed.title == "Current To-Do Items":
+                continue
+
+            out = msg
+            break
+        return out
+
     async def tasks_edited(self):
         # TODO: Delete previous overall message
+        channel = self.bot.get_channel(self.channel_id)
+        msg = await self._get_message(channel)
+        if msg:
+            await try_delete(msg)
+
         # TODO: Generate new message from task DB
-        pass
+        embed = create_queue_embed(self.bot)
+        embed = await self.generate_embed(embed)
+
+        await channel.send(embed=embed)
 
 
 class MainMenuView(ViewBase):
@@ -191,6 +218,19 @@ class MainMenuView(ViewBase):
         await interaction.response.edit_message(
             embed=new_embed, view=PriorityView(self.ctx, data, priority=select.values[0], archived=is_archived)
         )
+
+    @discord.ui.button(label='Dump', style=discord.ButtonStyle.danger)
+    async def dump_button(self, _, interaction: discord.MessageInteraction):
+        archived = list(filter(lambda x: not x.archived,    await self.fetch_items()))
+        pag = commands.Paginator()
+        for prio in PRIORITIES:
+            pag.add_line(f'{prio.title()}')
+            pag.add_line('-'*(len(prio)))
+            for i, task in enumerate(filter(lambda x: x.priority == prio.lower(), archived)):
+                pag.add_line(f'{i+1}. {task.title}: {task.content}')
+            pag.add_line('')
+        for page in pag.pages:
+            await interaction.send(content=page)
 
 
 class IndividualSelector(discord.ui.Select):
@@ -292,7 +332,27 @@ class IndividualView(ViewBase):
             embed=new_embed, view=PriorityView(self.ctx, self.items, priority=self.current_item.priority)
         )
 
-    @discord.ui.button(label="Edit", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Edit Title", style=discord.ButtonStyle.primary)
+    async def edit_title_button(self, _, interaction: discord.MessageInteraction):
+        new_title = await self.prompt_message(interaction, prompt="Send a message containing the new title.")
+
+        if not new_title:
+            return await interaction.send(content="Did not receive new to-do title", ephemeral=True)
+
+        await self.bot.mdb["todo_list"].update_one(
+            {"owner_id": self.current_item.owner_id, "title": self.current_item.title},
+            {"$set": {"title": new_title.strip()}},
+        )
+        self.current_item.title = new_title.strip()
+
+        await self.tasks_edited()
+
+        await interaction.followup.send(
+            content="To-do item edited!\nUnfortunately due to discord limitations, this embed was not edited.",
+            ephemeral=True,
+        )
+
+    @discord.ui.button(label="Edit Details", style=discord.ButtonStyle.primary)
     async def edit_button(self, _, interaction: discord.MessageInteraction):
         new_content = await self.prompt_message(interaction, prompt="Send a message containing the new description.")
 
@@ -310,7 +370,27 @@ class IndividualView(ViewBase):
             ephemeral=True,
         )
 
-    @discord.ui.button(label="Archive", style=discord.ButtonStyle.red)
+    @discord.ui.select(placeholder='Select new priority', options=PRIORITY_OPTIONS)
+    async def change_priority_selector(self, select: discord.ui.Select, interaction: discord.MessageInteraction):
+
+        await self.bot.mdb["todo_list"].update_one(
+            {"owner_id": self.current_item.owner_id, "content": self.current_item.content},
+            {"$set": {"priority": select.values[0].lower()}},
+        )
+
+        self.current_item.priority = select.values[0].lower()
+
+        old_embed = interaction.message.embeds[0]
+        new_embed = await self.edit_embed(old_embed, self.current_item)
+
+        await self.tasks_edited()
+
+        await interaction.response.edit_message(
+            embed=new_embed, view=IndividualView(self.ctx, self.items, self.current_item)
+        )
+        await interaction.send(content="To-do item priority changed!", ephemeral=True)
+
+    @discord.ui.button(label="Archive", style=discord.ButtonStyle.red, row=2)
     async def archive_button(self, _, interaction: discord.MessageInteraction):
 
         await self.bot.mdb["todo_list"].update_one(
@@ -324,12 +404,14 @@ class IndividualView(ViewBase):
         old_embed = interaction.message.embeds[0]
         new_embed = await self.edit_embed(old_embed, self.current_item)
 
+        await self.tasks_edited()
+
         await interaction.response.edit_message(
             embed=new_embed, view=IndividualView(self.ctx, self.items, self.current_item)
         )
         await interaction.send(content="To-do item archived!", ephemeral=True)
 
-    @discord.ui.button(label="Un-archive", style=discord.ButtonStyle.red)
+    @discord.ui.button(label="Un-archive", style=discord.ButtonStyle.red, row=2)
     async def unarchive_button(self, _, interaction: discord.MessageInteraction):
 
         await self.bot.mdb["todo_list"].update_one(
@@ -342,6 +424,8 @@ class IndividualView(ViewBase):
 
         old_embed = interaction.message.embeds[0]
         new_embed = await self.edit_embed(old_embed, self.current_item)
+
+        await self.tasks_edited()
 
         await interaction.response.edit_message(
             embed=new_embed, view=IndividualView(self.ctx, self.items, self.current_item)
@@ -379,3 +463,19 @@ class IndividualView(ViewBase):
             embed=new_embed, view=IndividualView(self.ctx, self.items, self.current_item)
         )
         await interaction.send(content="To-do item un-claimed!", ephemeral=True)
+
+    @discord.ui.button(label="Delete", style=discord.ButtonStyle.red, row=2)
+    async def delete_button(self, _, interaction: discord.MessageInteraction):
+        await self.bot.mdb["todo_list"].delete_one(
+            {"owner_id": self.current_item.owner_id, "content": self.current_item.content},
+        )
+
+        old_embed = interaction.message.embeds[0]
+        new_embed = await self.generate_embed(embed=old_embed, select_prio=self.current_item.priority)
+
+        await self.tasks_edited()
+
+        await interaction.response.edit_message(
+            embed=new_embed, view=PriorityView(self.ctx, self.items, self.current_item.priority)
+        )
+        await interaction.send(content="To-do item deleted!", ephemeral=True)

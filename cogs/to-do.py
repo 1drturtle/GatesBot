@@ -68,6 +68,9 @@ class ToDo(commands.Cog):
         embed.title = "To-Do Item Created"
         embed.description = str(todo_item)
 
+        view = MainMenuView(ctx)
+        await view.tasks_edited()
+
         await ctx.send(embed=embed)
 
 
