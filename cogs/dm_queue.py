@@ -358,7 +358,7 @@ class DMQueue(commands.Cog):
 
         pag = commands.Paginator()
         pag.add_line(f"DM Stats Data for {who.display_name}")
-        pag.add_line("assigned time (utc), gate tier")
+        pag.add_line("claimed date (utc), gate tier")
         for gate in gates:
             pag.add_line(f"{gate.claimed},{gate.gate.tier}")
 
@@ -389,7 +389,7 @@ class DMQueue(commands.Cog):
 
         pag = commands.Paginator()
         pag.add_line(f"Reinforcement Data Data for {who.display_name}" if who else "Reinforcement Data")
-        pag.add_line("dm id, assigned time (utc), gate tier")
+        pag.add_line("dm id, gate claimed date (utc), gate tier")
         for r in data:
             pag.add_line(f"{r['dm_id']},{r['gate_info']['claimed_date']},{r['gate_info']['tier']}")
 
