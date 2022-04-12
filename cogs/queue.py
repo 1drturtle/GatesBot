@@ -107,6 +107,7 @@ class QueueChannel(commands.Cog):
         self.dm_db = bot.mdb["dm_analytics"]
         self.player_db = bot.mdb["player_gates_analytics"]
         self.dm_assign_analytics = self.bot.mdb["dm_assign_analytics"]
+        self.r_db = self.bot.mdb["reinforcement_analytics"]
 
         self.server_id = constants.GATES_SERVER if self.bot.environment != "testing" else constants.DEBUG_SERVER
         self.channel_id = constants.GATES_CHANNEL if self.bot.environment != "testing" else constants.DEBUG_CHANNEL
@@ -304,6 +305,10 @@ class QueueChannel(commands.Cog):
         if gate is None:
             return await ctx.send("Invalid Gate Name!")
 
+        if not gate.get("owner"):
+            # update DM gate ownership
+            await self.gate_list_db.update_one({"name": gate["name"]}, {"$set": {"owner": ctx.author.id}})
+
         length = len(queue.groups)
         check = length_check(length, group)
         if check is not None:
@@ -319,28 +324,38 @@ class QueueChannel(commands.Cog):
         )
 
         # update analytics
-        # dm_assign_analytics
-        _assign_analytics_data = await self.dm_assign_analytics.find(
-            sort=[("summonDate", -1)], limit=1, filter={"claimed": False}
-        ).to_list(length=None)
-        if _assign_analytics_data:
-            _assign_analytics_data = _assign_analytics_data[0]
-            await self.dm_assign_analytics.update_one(
-                {"_id": _assign_analytics_data["_id"]}, {"$set": {"claimed": True}, "$currentDate": {"claimDate": True}}
-            )
+
+        # reinforcements analytics
         # dm_analytics
         raw_gate = popped.to_dict()
         raw_gate["gate_name"] = gate["name"]
         raw_gate["claimed_date"] = datetime.datetime.utcnow()
         raw_gate.pop("position")
-        await self.dm_db.update_one(
-            {"_id": ctx.author.id},
-            {
-                "$inc": {"dm_claims.claims": 1},
-                "$push": {"dm_gates": raw_gate},
-                "$currentDate": {"dm_claims.last_claim": True},
-            },
-        )
+        if reinforcement:
+            dm_info = await self.bot.mdb["dm_analytics"].find_one({"_id": gate.get("owner", None)})
+            last_gate = dm_info["dm_gates"][-1]
+
+            await self.r_db.insert_one({"type": "reinforcements", "gate_info": last_gate, "dm_id": gate["owner"]})
+        else:
+            # dm_assign_analytics
+            _assign_analytics_data = await self.dm_assign_analytics.find(
+                sort=[("summonDate", -1)], limit=1, filter={"claimed": False}
+            ).to_list(length=None)
+            if _assign_analytics_data:
+                _assign_analytics_data = _assign_analytics_data[0]
+                await self.dm_assign_analytics.update_one(
+                    {"_id": _assign_analytics_data["_id"]},
+                    {"$set": {"claimed": True}, "$currentDate": {"claimDate": True}},
+                )
+
+            await self.dm_db.update_one(
+                {"_id": ctx.author.id},
+                {
+                    "$inc": {"dm_claims.claims": 1},
+                    "$push": {"dm_gates": raw_gate},
+                    "$currentDate": {"dm_claims.last_claim": True},
+                },
+            )
 
         # old analytics - overview
         gate_analytics_data = {
@@ -379,9 +394,6 @@ class QueueChannel(commands.Cog):
         #
         # for player in out_players:
         #     await player.member.add_roles(gate_role, reason='Automatic Gate Assignment')
-
-        # update DM gate ownership
-        await self.gate_list_db.update_one({"name": gate["name"]}, {"$set": {"owner": ctx.author.id}})
 
         # send summon msg
         if summons_ch is not None:

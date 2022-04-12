@@ -336,6 +336,66 @@ class DMQueue(commands.Cog):
 
         await ctx.send(embed=embed)
 
+    @dm_stats.command(name="dump")
+    @has_any_role(["DM", "Assistant"])
+    async def dm_stats_dump(self, ctx, who: discord.Member = None):
+
+        if not who:
+            who = ctx.author
+
+        dm_data = await self.dm_db.find_one({"_id": who.id})
+
+        if not dm_data:
+            raise commands.BadArgument(f"Member {who.mention} does not have DM stats.")
+
+        gates = []
+        for raw_data in dm_data.get("dm_gates"):
+            name = raw_data.pop("gate_name")
+            claimed = raw_data.pop("claimed_date")
+            raw_data["position"] = None
+            gate = Group.from_dict(self.bot.get_guild(self.server_id), raw_data)
+            gates.append(GateGroup(gate=gate, name=name, claimed=claimed))
+
+        pag = commands.Paginator()
+        pag.add_line(f"DM Stats Data for {who.display_name}")
+        pag.add_line("assigned time (utc), gate tier")
+        for gate in gates:
+            pag.add_line(f"{gate.claimed},{gate.gate.tier}")
+
+        for page in pag.pages:
+            await ctx.send(page)
+
+    @dm_stats.command(name="reinforcements")
+    @has_any_role(["DM", "Assistant"])
+    async def dm_reinforcements_dump(self, ctx, who: discord.Member = None):
+
+        if who:
+            data = (
+                await self.bot.mdb["reinforcement_analytics"]
+                .find({"dm_id": who.id})
+                .sort("gate_info.claimed_date", 1)
+                .to_list(length=None)
+            )
+        else:
+            data = (
+                await self.bot.mdb["reinforcement_analytics"]
+                .find()
+                .sort("gate_info.claimed_date", 1)
+                .to_list(length=None)
+            )
+
+        if not data:
+            raise commands.BadArgument("Could not find reinforcement data")
+
+        pag = commands.Paginator()
+        pag.add_line(f"Reinforcement Data Data for {who.display_name}" if who else "Reinforcement Data")
+        pag.add_line("dm id, assigned time (utc), gate tier")
+        for r in data:
+            pag.add_line(f"{r['dm_id']},{r['gate_info']['claimed_date']},{r['gate_info']['tier']}")
+
+        for page in pag.pages:
+            await ctx.send(page)
+
 
 def setup(bot):
     bot.add_cog(DMQueue(bot))

@@ -33,6 +33,7 @@ class StrikeQueue(commands.Cog):
         self.db = self.bot.mdb["strike_queue"]
         self.gate_db = bot.mdb["gate_list"]
         self.data_db = self.bot.mdb["queue_analytics"]
+        self.r_db = self.bot.mdb["reinforcement_analytics"]
 
     async def cog_check(self, ctx):
         if not ctx.guild:
@@ -172,6 +173,21 @@ class StrikeQueue(commands.Cog):
             # role = discord.utils.find(lambda r: r.name == f'{gate_name.title()} Gate', ctx.guild.roles)
             # if role:
             #     await p.add_roles(role, reason='Strike Queue Signup, adding role.')
+
+        # reinforcement analytics
+
+        dm_info = await self.bot.mdb["dm_analytics"].find_one({"_id": gate_data.get("owner", None)})
+        last_gate = dm_info["dm_gates"][-1]
+
+        await self.r_db.insert_one(
+            {
+                "type": "strike_team",
+                "user_ids": [p.id for p in people],
+                "dm_id": gate_data["owner"],
+                "gate_name": gate_name.lower(),
+                "gate_info": last_gate,
+            }
+        )
 
         for person in dms:
             await self.db.delete_one({"_id": person.get("_id")})
