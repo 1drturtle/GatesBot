@@ -274,8 +274,8 @@ class DMQueue(commands.Cog):
 
             embed.add_field(
                 name="DM Queue Stats",
-                value=f"**Queue Signups:** {dm_data['dm_queue']['signups']}\n"
-                f"**Queue Assignments:** {dm_data['dm_queue']['assignments']}\n"
+                value=f"**Queue Signups:** {dm_data['dm_queue'].get('signups', 0)}\n"
+                f"**Queue Assignments:** {dm_data['dm_queue'].get('assignments', 0)}\n"
                 f"**Last Signup:** <t:{int(last_signed.timestamp())}:f>",
                 inline=False,
             )
