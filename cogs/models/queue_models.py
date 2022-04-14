@@ -118,6 +118,18 @@ class Group:
         )
         return out
 
+    @property
+    def tier_str(self) -> str:
+        tiers = set()
+
+        for player in self.players:
+            tiers.add(player.tier)
+
+        out = '/'.join(map(str, sorted(tiers)))
+        out = '__' + out + '__'
+
+        return out
+
     def __repr__(self):
         return f"<Group {self.players=}, {self.tier=}, {self.position=}>"
 

@@ -155,7 +155,7 @@ class DMQueue(commands.Cog):
         msg = (
             f"Group {group_num} is yours, see above for details."
             f" Don't forget to submit your encounter in <#798247432743551067> once ready and claim once approved!"
-            f" Kindly note that this is a **{len(group.players)} person Rank {group.tier}** "
+            f" Kindly note that this is a **{len(group.players)} person Rank {group.tier_str}** "
             f"group and adjust your encounter as needed."
             f" Please react to this message if you are, indeed, claiming."
             f" **__Double check the Group # in <#773895672415649832> when claiming please!__**"
