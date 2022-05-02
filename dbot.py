@@ -13,7 +13,7 @@ from utils.functions import try_delete
 
 COGS = {
     "cogs.util",
-    "jishaku",
+    # "jishaku",
     "cogs.queue",
     "cogs.gates",
     "cogs.schedule",
