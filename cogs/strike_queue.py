@@ -242,6 +242,23 @@ class StrikeQueue(commands.Cog):
 
         await ctx.send(embed=embed, delete_after=10)
 
+    @strike.command(name="remove")
+    @has_role("Admin")
+    async def dm_remove(self, ctx, to_remove: discord.Member):
+        """Remove a member from the Strike Queue."""
+        embed = create_default_embed(ctx)
+        embed.title = "User Removed from Queue."
+        embed.description = f"{to_remove.mention} has been removed from queue, if they were in it."
+
+        try:
+            await self.db.delete_one({"_id": to_remove.id})
+        except:
+            pass
+        else:
+            await self.update_queue()
+
+        await ctx.send(embed=embed, delete_after=10)
+
 
 def setup(bot):
     bot.add_cog(StrikeQueue(bot))

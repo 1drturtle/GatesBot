@@ -235,6 +235,23 @@ class DMQueue(commands.Cog):
 
         await ctx.send(embed=embed, delete_after=10)
 
+    @dm.command(name="remove")
+    @has_role("Assistant")
+    async def dm_remove(self, ctx, to_remove: discord.Member):
+        """Remove a member from the DM queue."""
+        embed = create_default_embed(ctx)
+        embed.title = "Member Removed from Queue."
+        embed.description = f"{to_remove.mention} has been removed from queue, if they were in it."
+
+        try:
+            await self.db.delete_one({"_id": to_remove.id})
+        except:
+            pass
+        else:
+            await self.update_queue()
+
+        await ctx.send(embed=embed, delete_after=10)
+
     async def load_recent_gates(self, who: discord.Member, existing_data=None):
         if existing_data is None:
             dm_data = await self.dm_db.find_one({"_id": who.id})
