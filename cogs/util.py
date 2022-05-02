@@ -182,7 +182,7 @@ class Utility(commands.Cog):
             f"{len([c for c in guild.channels if isinstance(c, discord.VoiceChannel)])} voice channels."
         )
         embed.add_field(name="Channel Info", value=channels)
-        embed.set_thumbnail(url=str(guild.icon))
+        embed.set_thumbnail(url=str(guild.icon.url)) if guild.icon else None
 
         return await ctx.send(embed=embed, allowed_mentions=None)
 

@@ -1,9 +1,9 @@
 # Core (Discord)
-disnake[discord]
-git+https://github.com/Rapptz/discord-ext-menus
+disnake[discord]==2.4.0
+# git+https://github.com/Rapptz/discord-ext-menus
 
 # Time
-pendulum
+pendulum==2.1.2
 
 # Database
 motor==2.3.0
@@ -13,12 +13,7 @@ dnspython==2.0.0
 sentry-sdk==0.19.2
 
 psutil
-# this is an issue
-#jishaku==2.4.0
-
-# other
-tabulate
-pendulum
+jishaku<=2.4.0
 
 # code formatting/styling/linting deps
 pre-commit==2.17.0
