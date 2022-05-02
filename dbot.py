@@ -72,7 +72,7 @@ class GatesBot(commands.Bot):
 
 intents = discord.Intents(guilds=True, members=True, messages=True, reactions=True)
 
-description = "Bot made for The Gates D&D Server."
+description = "Discord Bot made for The Gates D&D Server."
 
 bot = GatesBot(desc=description, intents=intents, allowed_mentions=discord.AllowedMentions.none())
 
