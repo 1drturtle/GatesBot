@@ -12,7 +12,7 @@ dnspython==2.0.0
 # Error Handling/Debugging
 sentry-sdk==0.19.2
 psutil
-jishaku
+jishaku==2.4.0
 
 # other
 tabulate

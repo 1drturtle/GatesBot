@@ -244,7 +244,7 @@ class StrikeQueue(commands.Cog):
 
     @strike.command(name="remove")
     @has_role("Admin")
-    async def dm_remove(self, ctx, to_remove: discord.Member):
+    async def strike_remove(self, ctx, to_remove: discord.Member):
         """Remove a member from the Strike Queue."""
         embed = create_default_embed(ctx)
         embed.title = "User Removed from Queue."
