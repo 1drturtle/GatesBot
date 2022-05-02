@@ -14,7 +14,7 @@ sentry-sdk==0.19.2
 
 psutil
 # this is an issue
-jishaku==2.4.0
+#jishaku==2.4.0
 
 # other
 tabulate
