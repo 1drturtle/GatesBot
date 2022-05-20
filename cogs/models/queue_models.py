@@ -1,6 +1,6 @@
 import discord
 
-from utils.constants import GROUP_SIZE, DEV_ID
+from utils.constants import GROUP_SIZE, DEV_ID, SPECIAL_GATE_ROLE_ID
 from utils.constants import TIERS as TIERS
 from utils.functions import create_queue_embed, try_delete
 
@@ -110,12 +110,11 @@ class Group:
 
     @property
     def player_levels_str(self) -> str:
-        out = (
-            "`" * 3
-            + "diff\n"
-            + "\n".join([f"- {player.member.display_name}:" f" {player.level_str}" for player in self.players])
-            + "\n```"
-        )
+        out = "```diff\n"
+        for player in self.players:
+            has_role = discord.utils.find(lambda r: r.id == SPECIAL_GATE_ROLE_ID, player.member.roles)
+            out += f"- {player.member.display_name}: {player.level_str} {'[S]' if has_role else ''}\n"
+        out += "```"
         return out
 
     @property
@@ -125,8 +124,8 @@ class Group:
         for player in self.players:
             tiers.add(player.tier)
 
-        out = '/'.join(map(str, sorted(tiers)))
-        out = '__' + out + '__'
+        out = "/".join(map(str, sorted(tiers)))
+        out = "__" + out + "__"
 
         return out
 
