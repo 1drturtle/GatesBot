@@ -250,9 +250,9 @@ class Gates(commands.Cog):
 
         out = []
         for mem in s.members:
+            if mem.bot:
+                continue
             if not discord.utils.find(lambda r: r.name == "Active", mem.roles):
-                if mem.bot:
-                    continue
                 out.append(mem)
 
         pag.add_line("-- Members without Active role --\n")

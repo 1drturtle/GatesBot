@@ -50,7 +50,7 @@ class GatesBot(commands.Bot):
         self._dev_id = config.DEV_ID
         self.environment = config.ENVIRONMENT
 
-        self.loop = asyncio.get_event_loop()
+        self.loop = None
 
         self.mongo_client = motor.motor_asyncio.AsyncIOMotorClient(config.MONGO_URL)
         self.mdb = self.mongo_client[config.MONGO_DB]
@@ -94,6 +94,7 @@ logging.getLogger("disnake.http").setLevel(logging.INFO)
 async def on_ready():
 
     bot.ready_time = datetime.utcnow()
+    bot.loop = asyncio.get_running_loop()
 
     ready_message = (
         f"\n---------------------------------------------------\n"
