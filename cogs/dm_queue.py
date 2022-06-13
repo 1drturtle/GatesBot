@@ -168,12 +168,7 @@ class DMQueue(commands.Cog):
 
         embed2 = create_queue_embed(self.bot)
         embed2.title = f"Information for Group #{group_num}"
-        embed2.description = (
-            "`" * 3
-            + "diff\n"
-            + "\n".join([f"- {player.member.display_name}:" f" {player.level_str}" for player in group.players])
-            + "\n```"
-        )
+        embed2.description = group.player_levels_str
         await ch.send(embed=embed2)
         await ch.send(f"{who.mention}", embed=embed, allowed_mentions=discord.AllowedMentions(users=True))
 
