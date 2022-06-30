@@ -15,7 +15,7 @@ class QueueException(BaseException):
 
 class Player:
     def __init__(self, member: discord.Member, total_level: int, levels: list):
-        self._member = member
+        self.member = member
         self._levels = levels
         self._total_level = total_level
         self.tier = parse_tier_from_total(total_level)
@@ -49,10 +49,6 @@ class Player:
     @property
     def levels(self):
         return self._levels
-
-    @property
-    def member(self):
-        return self._member
 
     @property
     def mention(self):

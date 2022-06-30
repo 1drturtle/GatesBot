@@ -166,6 +166,10 @@ class DMQueue(commands.Cog):
 
         group.players.sort(key=lambda x: x.member.display_name)
 
+        # update members
+        for player in group.players:
+            player.member = await ctx.guild.fetch_member(player.member.id)
+
         embed2 = create_queue_embed(self.bot)
         embed2.title = f"Information for Group #{group_num}"
         embed2.description = group.player_levels_str
