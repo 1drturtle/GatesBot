@@ -1,9 +1,11 @@
 import asyncio
 import datetime
 import logging
+from collections import namedtuple
 
 import discord
 import disnake
+import pendulum
 import pymongo
 from discord.ext import commands
 
@@ -12,8 +14,6 @@ from cogs.models.queue_models import Queue, Group
 from cogs.queue import queue_from_guild, length_check
 from utils.checks import has_role, has_any_role
 from utils.functions import create_queue_embed, try_delete, create_default_embed
-from collections import namedtuple
-import pendulum
 
 GateGroup = namedtuple("GateGroup", "gate claimed name")
 
@@ -411,6 +411,27 @@ class DMQueue(commands.Cog):
 
         for page in pag.pages:
             await ctx.send(page)
+
+    @dm_stats.command(name="claimed")
+    @has_any_role(["Assistant, Admin"])
+    async def dm_stats_claimed(self, ctx):
+        """
+        Shows the last claim date of all registered DM(s). The DM must have claimed a gate before.
+        """
+        data = await self.dm_db.find().to_list(length=None)
+        embed = create_default_embed(ctx, title="DM Analytics - Last DM Claim")
+        molded_data = []
+        for item in data:
+            member = ctx.guild.get_member(item["_id"])
+            try:
+                timestamp = int((item["dm_claims"].get("last_claim") - datetime.datetime(1970, 1, 1)).total_seconds())
+            except (KeyError, IndexError):
+                continue
+            molded_data.append((member, timestamp))
+        molded_data = sorted(molded_data, key=lambda i: i[1])
+        embed.description = "\n".join([f"{i[0].mention}: <t:{i[1]}:R>" for i in molded_data])
+
+        await ctx.send(embed=embed)
 
 
 def setup(bot):
