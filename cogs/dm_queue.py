@@ -413,7 +413,7 @@ class DMQueue(commands.Cog):
             await ctx.send(page)
 
     @dm_stats.command(name="claimed")
-    @has_any_role(["Assistant, Admin"])
+    @has_any_role(["Assistant", "Admin"])
     async def dm_stats_claimed(self, ctx):
         """
         Shows the last claim date of all registered DM(s). The DM must have claimed a gate before.
