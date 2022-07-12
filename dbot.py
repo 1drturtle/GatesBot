@@ -6,6 +6,7 @@ import discord
 import motor.motor_asyncio
 import sentry_sdk
 from discord.ext import commands
+from utils.constants import DEBUG_SERVER
 import asyncio
 
 import utils.config as config
@@ -74,7 +75,9 @@ intents = discord.Intents(guilds=True, members=True, messages=True, reactions=Tr
 
 description = "Discord Bot made for The Gates D&D Server."
 
-bot = GatesBot(desc=description, intents=intents, allowed_mentions=discord.AllowedMentions.none())
+bot = GatesBot(
+    desc=description, intents=intents, allowed_mentions=discord.AllowedMentions.none(), test_guilds=[DEBUG_SERVER]
+)
 
 log_formatter = logging.Formatter("%(levelname)s | %(name)s: %(message)s")
 handler = logging.StreamHandler(sys.stdout)
