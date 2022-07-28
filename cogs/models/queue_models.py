@@ -136,6 +136,8 @@ class Group:
         names = []
         for player in self.players:
             mark_info = await mark_db.find_one({"_id": player.member.id})
+            if not mark_info:
+                mark_info = {}
             post_fix = f'{"*" if mark_info.get("marked", False) else ""}{mark_info.get("custom", "")}'
             names.append(f"{player.mention}{post_fix}")
         return discord.utils.escape_markdown(", ".join(names))
