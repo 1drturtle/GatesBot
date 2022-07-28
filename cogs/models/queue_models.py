@@ -131,6 +131,15 @@ class Group:
 
         return out
 
+    async def generate_field(self, bot):
+        mark_db = bot.mdb["player_marked"]
+        names = []
+        for player in self.players:
+            mark_info = await mark_db.find_one({"_id": player.member.id})
+            post_fix = f'{"*" if mark_info.get("marked", False) else ""}{mark_info.get("custom", "")}'
+            names.append(f"{player.mention}{post_fix}")
+        return ", ".join(names)
+
     def __repr__(self):
         return f"<Group {self.players=}, {self.tier=}, {self.position=}>"
 
@@ -153,7 +162,7 @@ class Queue:
             "channel_id": self.channel_id,
         }
 
-    def generate_embed(self, bot) -> discord.Embed:
+    async def generate_embed(self, bot) -> discord.Embed:
         embed = create_queue_embed(bot)
 
         # Sort Groups by Tier
@@ -164,9 +173,7 @@ class Queue:
         for index, group in enumerate(self.groups):
             embed.add_field(
                 name=f"{index + 1}. Rank {group.tier}",
-                value=", ".join(
-                    [player.mention + ("🐢" if player.member.id == DEV_ID else "") for player in group.players]
-                ),
+                value=await group.generate_field(bot),
                 inline=False,
             )
 
@@ -201,7 +208,7 @@ class Queue:
         await db.update_one({"guild_id": self.server_id, "channel_id": self.channel_id}, {"$set": data}, upsert=True)
 
         # Make a new embed
-        embed = self.generate_embed(bot)
+        embed = await self.generate_embed(bot)
         return await channel.send(embed=embed)
 
     def in_queue(self, member_id) -> tuple:

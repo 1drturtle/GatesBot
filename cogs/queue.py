@@ -109,6 +109,8 @@ class QueueChannel(commands.Cog):
         self.dm_assign_analytics = self.bot.mdb["dm_assign_analytics"]
         self.r_db = self.bot.mdb["reinforcement_analytics"]
 
+        self.mark_db = self.bot.mdb["player_marked"]
+
         self.server_id = constants.GATES_SERVER if self.bot.environment != "testing" else constants.DEBUG_SERVER
         self.channel_id = constants.GATES_CHANNEL if self.bot.environment != "testing" else constants.DEBUG_CHANNEL
 
@@ -323,6 +325,10 @@ class QueueChannel(commands.Cog):
             constants.SUMMONS_CHANNEL if self.bot.environment != "testing" else constants.DEBUG_SUMMONS_CHANNEL
         )
 
+        # update marks
+        for player in popped.players:
+            await self.mark_db.update_one({"_id": player.member.id}, {"$set": {"marked": False}})
+
         # update analytics
 
         # reinforcements analytics
@@ -486,7 +492,7 @@ class QueueChannel(commands.Cog):
     async def send_current_queue(self, ctx):
         """Sends the current queue."""
         queue = await queue_from_guild(self.queue_db, ctx.guild)
-        embed = queue.generate_embed(self.bot)
+        embed = await queue.generate_embed(self.bot)
         embed.title = "Gate Sign-Up Queue"
         return await ctx.send(embed=embed)
 
@@ -845,6 +851,21 @@ class QueueChannel(commands.Cog):
             return await ctx.author.send("Could not find Player role, aborting channel unlock.")
 
         log.info(f"Queue has been unlocked by {ctx.author.name}#{ctx.author.discriminator}")
+
+        # Mark timestamp
+        await self.mark_db.update_one(
+            {"_mark": True}, {"$set": {"_mark": True, "timestamp": datetime.datetime.utcnow()}}, upsert=True
+        )
+
+        # resolve queue
+        queue = await queue_from_guild(self.queue_db, ctx.guild)
+
+        # Mark all Players in Group
+        for group in queue.groups:
+            for player in group.players:
+                await self.mark_db.update_one(
+                    {"_id": player.member.id}, {"$set": {"_id": player.member.id, "marked": True}}, upsert=True
+                )
 
         # new perms
         perms = queue_channel.overwrites
