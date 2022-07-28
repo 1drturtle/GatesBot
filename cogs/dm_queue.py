@@ -1,9 +1,11 @@
 import asyncio
 import datetime
 import logging
+from collections import namedtuple
 
 import discord
 import disnake
+import pendulum
 import pymongo
 from discord.ext import commands
 
@@ -12,8 +14,6 @@ from cogs.models.queue_models import Queue, Group
 from cogs.queue import queue_from_guild, length_check
 from utils.checks import has_role, has_any_role
 from utils.functions import create_queue_embed, try_delete, create_default_embed
-from collections import namedtuple
-import pendulum
 
 GateGroup = namedtuple("GateGroup", "gate claimed name")
 
@@ -155,7 +155,7 @@ class DMQueue(commands.Cog):
         msg = (
             f"Group {group_num} is yours, see above for details."
             f" Don't forget to submit your encounter in <#798247432743551067> once ready and claim once approved!"
-            f" Kindly note that this is a **{len(group.players)} person Rank {group.tier}** "
+            f" Kindly note that this is a **{len(group.players)} person Rank {group.tier_str}** "
             f"group and adjust your encounter as needed."
             f" Please react to this message if you are, indeed, claiming."
             f" **__Double check the Group # in <#773895672415649832> when claiming please!__**"
@@ -166,14 +166,13 @@ class DMQueue(commands.Cog):
 
         group.players.sort(key=lambda x: x.member.display_name)
 
+        # update members
+        for player in group.players:
+            player.member = await ctx.guild.fetch_member(player.member.id)
+
         embed2 = create_queue_embed(self.bot)
         embed2.title = f"Information for Group #{group_num}"
-        embed2.description = (
-            "`" * 3
-            + "diff\n"
-            + "\n".join([f"- {player.member.display_name}:" f" {player.level_str}" for player in group.players])
-            + "\n```"
-        )
+        embed2.description = group.player_levels_str
         await ch.send(embed=embed2)
         await ch.send(f"{who.mention}", embed=embed, allowed_mentions=discord.AllowedMentions(users=True))
 
@@ -235,6 +234,23 @@ class DMQueue(commands.Cog):
 
         await ctx.send(embed=embed, delete_after=10)
 
+    @dm.command(name="remove")
+    @has_role("Assistant")
+    async def dm_remove(self, ctx, to_remove: discord.Member):
+        """Remove a member from the DM queue."""
+        embed = create_default_embed(ctx)
+        embed.title = "Member Removed from Queue."
+        embed.description = f"{to_remove.mention} has been removed from queue, if they were in it."
+
+        try:
+            await self.db.delete_one({"_id": to_remove.id})
+        except:
+            pass
+        else:
+            await self.update_queue()
+
+        await ctx.send(embed=embed, delete_after=10)
+
     async def load_recent_gates(self, who: discord.Member, existing_data=None):
         if existing_data is None:
             dm_data = await self.dm_db.find_one({"_id": who.id})
@@ -274,8 +290,8 @@ class DMQueue(commands.Cog):
 
             embed.add_field(
                 name="DM Queue Stats",
-                value=f"**Queue Signups:** {dm_data['dm_queue']['signups']}\n"
-                f"**Queue Assignments:** {dm_data['dm_queue']['assignments']}\n"
+                value=f"**Queue Signups:** {dm_data['dm_queue'].get('signups', 0)}\n"
+                f"**Queue Assignments:** {dm_data['dm_queue'].get('assignments', 0)}\n"
                 f"**Last Signup:** <t:{int(last_signed.timestamp())}:f>",
                 inline=False,
             )
@@ -333,6 +349,87 @@ class DMQueue(commands.Cog):
             inline=False,
         )
         embed.add_field(name="Players", value=gate.gate.player_levels_str, inline=False)
+
+        await ctx.send(embed=embed)
+
+    @dm_stats.command(name="dump")
+    @has_any_role(["DM", "Assistant"])
+    async def dm_stats_dump(self, ctx, who: discord.Member = None):
+
+        if not who:
+            who = ctx.author
+
+        dm_data = await self.dm_db.find_one({"_id": who.id})
+
+        if not dm_data:
+            raise commands.BadArgument(f"Member {who.mention} does not have DM stats.")
+
+        gates = []
+        for raw_data in dm_data.get("dm_gates"):
+            name = raw_data.pop("gate_name")
+            claimed = raw_data.pop("claimed_date")
+            raw_data["position"] = None
+            gate = Group.from_dict(self.bot.get_guild(self.server_id), raw_data)
+            gates.append(GateGroup(gate=gate, name=name, claimed=claimed))
+
+        pag = commands.Paginator()
+        pag.add_line(f"DM Stats Data for {who.display_name}")
+        pag.add_line("claimed date (utc), gate tier")
+        for gate in gates:
+            pag.add_line(f"{gate.claimed},{gate.gate.tier}")
+
+        for page in pag.pages:
+            await ctx.send(page)
+
+    @dm_stats.command(name="reinforcements")
+    @has_any_role(["DM", "Assistant"])
+    async def dm_reinforcements_dump(self, ctx, who: discord.Member = None):
+
+        if who:
+            data = (
+                await self.bot.mdb["reinforcement_analytics"]
+                .find({"dm_id": who.id})
+                .sort("gate_info.claimed_date", 1)
+                .to_list(length=None)
+            )
+        else:
+            data = (
+                await self.bot.mdb["reinforcement_analytics"]
+                .find()
+                .sort("gate_info.claimed_date", 1)
+                .to_list(length=None)
+            )
+
+        if not data:
+            raise commands.BadArgument("Could not find reinforcement data")
+
+        pag = commands.Paginator()
+        pag.add_line(f"Reinforcement Data Data for {who.display_name}" if who else "Reinforcement Data")
+        pag.add_line("dm id, gate claimed date (utc), gate tier")
+        for r in data:
+            pag.add_line(f"{r['dm_id']},{r['gate_info']['claimed_date']},{r['gate_info']['tier']}")
+
+        for page in pag.pages:
+            await ctx.send(page)
+
+    @dm_stats.command(name="claimed")
+    @has_any_role(["Assistant", "Admin"])
+    async def dm_stats_claimed(self, ctx):
+        """
+        Shows the last claim date of all registered DM(s). The DM must have claimed a gate before.
+        """
+        data = await self.dm_db.find().to_list(length=None)
+        embed = create_default_embed(ctx, title="DM Analytics - Last DM Claim")
+        molded_data = []
+        for item in data:
+            member = ctx.guild.get_member(item["_id"])
+            try:
+                timestamp = int((item["dm_claims"].get("last_claim") - datetime.datetime(1970, 1, 1)).total_seconds())
+            except (KeyError, IndexError):
+                continue
+            molded_data.append((member, timestamp))
+        molded_data = sorted(molded_data, key=lambda i: i[1])
+        embed.description = "\n".join([f"{i[0].mention}: <t:{i[1]}:R>" for i in molded_data])
 
         await ctx.send(embed=embed)
 

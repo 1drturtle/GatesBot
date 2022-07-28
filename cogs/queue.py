@@ -15,14 +15,13 @@ from utils.checks import has_role
 from utils.functions import create_default_embed, try_delete
 
 line_re = re.compile(r"\*\*in line:*\*\*", re.IGNORECASE)
-# player_class_regex = re.compile(r'((\w+ )*(\w+) (\d+))')
 player_class_regex = re.compile(r"(?P<subclass>(?:\w+ )*)(?P<class>\w+) (?P<level>\d+)")
 
 log = logging.getLogger(__name__)
 
 
 class ContextProxy:
-    def __init__(self, bot, message):
+    def __init__(self, bot, message: discord.Message):
         self.message = message
         self.bot = bot
         self.author = message.author
@@ -69,13 +68,13 @@ def length_check(group_length, requested_length):
     return None
 
 
-async def stats_check(player: Player):
+async def check_level_role(player: Player):
     level = player.total_level
     level_role = f"Level {level}"
     has_level_role = discord.utils.find(lambda r: r.name == level_role, player.member.roles)
 
     if has_level_role:
-        return
+        return None
 
     wrong_role = discord.utils.find(lambda r: r.name.lower().startswith("level"), player.member.roles)
     if not wrong_role:
@@ -108,6 +107,7 @@ class QueueChannel(commands.Cog):
         self.dm_db = bot.mdb["dm_analytics"]
         self.player_db = bot.mdb["player_gates_analytics"]
         self.dm_assign_analytics = self.bot.mdb["dm_assign_analytics"]
+        self.r_db = self.bot.mdb["reinforcement_analytics"]
 
         self.server_id = constants.GATES_SERVER if self.bot.environment != "testing" else constants.DEBUG_SERVER
         self.channel_id = constants.GATES_CHANNEL if self.bot.environment != "testing" else constants.DEBUG_CHANNEL
@@ -115,7 +115,6 @@ class QueueChannel(commands.Cog):
         self.update_bot_status.start()
 
     async def cog_check(self, ctx):
-
         if not ctx.guild:
             return False
         if ctx.guild.id == constants.GATES_SERVER:
@@ -127,7 +126,7 @@ class QueueChannel(commands.Cog):
         self.update_bot_status.cancel()
 
     @commands.Cog.listener(name="on_message")
-    async def queue_listener(self, message):
+    async def queue_listener(self, message: discord.Message):
         if message.guild is None:
             return None
 
@@ -151,14 +150,16 @@ class QueueChannel(commands.Cog):
 
         # Create a Player Object.
         player: Player = Player.new(message.author, player_details)
-        await stats_check(player)
+        await check_level_role(player)
 
         # Get our Queue
         queue = await queue_from_guild(self.queue_db, self.bot.get_guild(self.server_id))
 
         # Are we already in a Queue?
         if queue.in_queue(player.member.id):
+            # we can join multiple times in testing
             if not self.bot.environment == "testing":
+                # otherwise we dip
                 try:
                     await message.author.send("You are already in a queue!")
                 except disnake.Forbidden:
@@ -202,48 +203,51 @@ class QueueChannel(commands.Cog):
         channel = self.bot.get_channel(self.channel_id)
         await queue.update(self.bot, self.queue_db, channel)
 
-    @commands.Cog.listener(name="on_raw_reaction_add")
-    async def queue_emoji_listener(self, payload):
-
-        if not payload.guild_id == self.server_id and payload.channel_id == self.channel_id:
-            return
-
-        if payload.event_type != "REACTION_ADD":
-            return
-
-        guild = self.bot.get_guild(payload.guild_id)
-        if not guild:
-            return
-        channel = guild.get_channel(payload.channel_id)
-        message = await channel.fetch_message(payload.message_id)
-
-        if not message.author.id == self.bot.user.id:
-            return
-
-        if payload.member.id == self.bot.user.id:
-            # if somehow the bot reacts to it's own message, let's not
-            return
-
-        prev_data = await self.emoji_db.find_one({"reacter_id": payload.member.id})
-        if prev_data is not None:
-            if prev_data["message_id"] == message.id:
-                return
-            data = {
-                "$set": {"message_id": message.id, "emoji_id": payload.emoji.id},
-                "$currentDate": {"last_reacted": True},
-                "$inc": {"reaction_count": 1},
-            }
-            await self.emoji_db.update_one({"reacter_id": payload.member.id}, data, upsert=True)
-        else:
-            await self.emoji_db.insert_one(
-                {
-                    "reacter_id": payload.member.id,
-                    "message_id": message.id,
-                    "emoji_id": payload.emoji.id,
-                    "last_reacted": datetime.datetime.now(),
-                    "reaction_count": 1,
-                }
-            )
+    # @commands.Cog.listener(name="on_raw_reaction_add")
+    # async def queue_emoji_listener(self, payload):
+    #
+    #     if not payload.guild_id == self.server_id and payload.channel_id == self.channel_id:
+    #         return
+    #
+    #     if payload.event_type != "REACTION_ADD":
+    #         return
+    #
+    #     guild = self.bot.get_guild(payload.guild_id)
+    #
+    #     if not guild:
+    #         return
+    #
+    #     channel = guild.get_channel(payload.channel_id)
+    #     message = await channel.fetch_message(payload.message_id)
+    #
+    #     if not message.author.id == self.bot.user.id:
+    #         # we only care about our own messages
+    #         return
+    #
+    #     if payload.member.id == self.bot.user.id:
+    #         # if somehow the bot reacts to it's own message, let's not
+    #         return
+    #
+    #     prev_data = await self.emoji_db.find_one({"reacter_id": payload.member.id})
+    #     if prev_data is not None:
+    #         if prev_data["message_id"] == message.id:
+    #             return
+    #         data = {
+    #             "$set": {"message_id": message.id, "emoji_id": payload.emoji.id},
+    #             "$currentDate": {"last_reacted": True},
+    #             "$inc": {"reaction_count": 1},
+    #         }
+    #         await self.emoji_db.update_one({"reacter_id": payload.member.id}, data, upsert=True)
+    #     else:
+    #         await self.emoji_db.insert_one(
+    #             {
+    #                 "reacter_id": payload.member.id,
+    #                 "message_id": message.id,
+    #                 "emoji_id": payload.emoji.id,
+    #                 "last_reacted": datetime.datetime.now(),
+    #                 "reaction_count": 1,
+    #             }
+    #         )
 
     @commands.group(name="gates", invoke_without_command=True)
     @commands.check_any(has_role("Admin"), commands.is_owner())
@@ -301,6 +305,10 @@ class QueueChannel(commands.Cog):
         if gate is None:
             return await ctx.send("Invalid Gate Name!")
 
+        if not gate.get("owner"):
+            # update DM gate ownership
+            await self.gate_list_db.update_one({"name": gate["name"]}, {"$set": {"owner": ctx.author.id}})
+
         length = len(queue.groups)
         check = length_check(length, group)
         if check is not None:
@@ -316,28 +324,38 @@ class QueueChannel(commands.Cog):
         )
 
         # update analytics
-        # dm_assign_analytics
-        _assign_analytics_data = await self.dm_assign_analytics.find(
-            sort=[("summonDate", -1)], limit=1, filter={"claimed": False}
-        ).to_list(length=None)
-        if _assign_analytics_data:
-            _assign_analytics_data = _assign_analytics_data[0]
-            await self.dm_assign_analytics.update_one(
-                {"_id": _assign_analytics_data["_id"]}, {"$set": {"claimed": True}, "$currentDate": {"claimDate": True}}
-            )
+
+        # reinforcements analytics
         # dm_analytics
         raw_gate = popped.to_dict()
         raw_gate["gate_name"] = gate["name"]
         raw_gate["claimed_date"] = datetime.datetime.utcnow()
         raw_gate.pop("position")
-        await self.dm_db.update_one(
-            {"_id": ctx.author.id},
-            {
-                "$inc": {"dm_claims.claims": 1},
-                "$push": {"dm_gates": raw_gate},
-                "$currentDate": {"dm_claims.last_claim": True},
-            },
-        )
+        if reinforcement:
+            dm_info = await self.bot.mdb["dm_analytics"].find_one({"_id": gate.get("owner", None)})
+            last_gate = dm_info["dm_gates"][-1]
+
+            await self.r_db.insert_one({"type": "reinforcements", "gate_info": last_gate, "dm_id": gate["owner"]})
+        else:
+            # dm_assign_analytics
+            _assign_analytics_data = await self.dm_assign_analytics.find(
+                sort=[("summonDate", -1)], limit=1, filter={"claimed": False}
+            ).to_list(length=None)
+            if _assign_analytics_data:
+                _assign_analytics_data = _assign_analytics_data[0]
+                await self.dm_assign_analytics.update_one(
+                    {"_id": _assign_analytics_data["_id"]},
+                    {"$set": {"claimed": True}, "$currentDate": {"claimDate": True}},
+                )
+
+            await self.dm_db.update_one(
+                {"_id": ctx.author.id},
+                {
+                    "$inc": {"dm_claims.claims": 1},
+                    "$push": {"dm_gates": raw_gate},
+                    "$currentDate": {"dm_claims.last_claim": True},
+                },
+            )
 
         # old analytics - overview
         gate_analytics_data = {
@@ -376,9 +394,6 @@ class QueueChannel(commands.Cog):
         #
         # for player in out_players:
         #     await player.member.add_roles(gate_role, reason='Automatic Gate Assignment')
-
-        # update DM gate ownership
-        await self.gate_list_db.update_one({"name": gate["name"]}, {"$set": {"owner": ctx.author.id}})
 
         # send summon msg
         if summons_ch is not None:

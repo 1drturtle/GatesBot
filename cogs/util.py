@@ -1,12 +1,15 @@
+import math
 import os
 from datetime import datetime
 
+import d20
 import discord
 import psutil
 from discord.ext import commands
 
 from utils.constants import DATE_FORMAT, VERSION
 from utils.functions import create_default_embed, try_delete
+from textwrap import dedent
 
 
 def time_to_readable(delta_uptime):
@@ -182,9 +185,93 @@ class Utility(commands.Cog):
             f"{len([c for c in guild.channels if isinstance(c, discord.VoiceChannel)])} voice channels."
         )
         embed.add_field(name="Channel Info", value=channels)
-        embed.set_thumbnail(url=str(guild.icon))
+        embed.set_thumbnail(url=str(guild.icon.url)) if guild.icon else None
 
         return await ctx.send(embed=embed, allowed_mentions=None)
+
+    @commands.command(name="dist")
+    @commands.cooldown(2, 60, commands.BucketType.user)
+    async def dice_distribution(self, ctx, dice: str = "1d20", num: int = 100000):
+        """
+        Rolls dice a lot. Thanks to Croebh for the base code.
+        """
+        width = 18
+
+        rolls = []
+        uVal = set()
+        counts = {}
+
+        partial = ["▏", "▎", "▍", "▌", "▋", "▊", "▉", "█"]
+
+        error = 0
+
+        roller = d20.Roller(context=d20.RollContext(max_rolls=25))
+        try:
+            ast_expr = roller.parse(dice)
+        except d20.RollSyntaxError:
+            raise commands.BadArgument(f"`{dice}` is an invalid dice string.")
+
+        for r in range(num):
+            r = roller.roll(ast_expr).total
+            if r == 0 and rolls[-1] == 0:
+                error += 1
+                if error == 10:
+                    rolls = rolls[:-11]
+                    num = len(rolls)
+                    uVal.remove(0)
+                    counts.pop(0)
+                    break
+            rolls.append(r)
+            uVal.add(r)
+            counts[r] = counts.get(r, 0) + 1
+
+        mean = round(sum(rolls) / num, 3)
+
+        mostC = max(counts, key=counts.get)
+        most = [str(i) for i in counts if counts[i] == counts[mostC]]
+        leastC = min(counts, key=counts.get)
+        least = [str(i) for i in counts if counts[i] == counts[leastC]]
+        (most.sort(), least.sort())
+
+        limiter = 100 * width / int(counts[mostC] / num * 100)
+
+        out = "\n".join(
+            [
+                f"{'+' if counts[x] == counts[mostC] else '-' if counts[x] == counts[leastC] else ' '}\
+                 {x:>3} | {counts[x] / num * 100:6.2f}% | {counts[x]:>6} | "
+                + (
+                    (
+                        "█" * int((counts[x] / num) * limiter)
+                        + (
+                            partial[int((counts[x] / num) * limiter * 10) % 8]
+                            if int((counts[x] / num) * limiter)
+                            else "▏"
+                        )
+                    )
+                )
+                for x in uVal
+            ]
+        )
+        out = dedent(out)
+
+        out = f"""Distribution for `{dice}` over {num:,} rolls.
+```diff
+------|---------|--------|{'-' * width}
+    # |       % |  ENUM  | BAR GRAPH
+------|---------|--------|{'-' * width}
+{out}
+------|---------|--------|{'-' * width}
+Standard Deviation: {f"{math.sqrt(sum([((x - mean) * (x - mean)) * counts[x] for x in counts]) / num):.3}"}
+  Observable Range: {min(rolls)}-{max(rolls)}
+      Average Roll: {mean}
++   Highest Chance: {f"{', '.join(most[:-1])}, or {most[-1]}" if len(most) > 1 else most[0]}\
+ ({f"{counts[mostC] / num * 100:.2f}%"} with {counts[mostC]} rolled)
+-    Lowest Chance: {f"{', '.join(least[:-1])}, or {least[-1]}" if len(least) > 1 else least[0]}\
+ ({f"{counts[leastC] / num * 100:.2f}%"} with {counts[leastC]} rolled)
+```"""
+        embed = create_default_embed(ctx)
+        embed.description = out
+        return await ctx.send(embed=embed)
 
 
 def setup(bot):

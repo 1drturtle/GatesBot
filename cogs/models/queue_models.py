@@ -1,6 +1,6 @@
 import discord
 
-from utils.constants import GROUP_SIZE, DEV_ID
+from utils.constants import GROUP_SIZE, DEV_ID, ROLE_MARKERS
 from utils.constants import TIERS as TIERS
 from utils.functions import create_queue_embed, try_delete
 
@@ -15,7 +15,7 @@ class QueueException(BaseException):
 
 class Player:
     def __init__(self, member: discord.Member, total_level: int, levels: list):
-        self._member = member
+        self.member = member
         self._levels = levels
         self._total_level = total_level
         self.tier = parse_tier_from_total(total_level)
@@ -49,10 +49,6 @@ class Player:
     @property
     def levels(self):
         return self._levels
-
-    @property
-    def member(self):
-        return self._member
 
     @property
     def mention(self):
@@ -110,12 +106,29 @@ class Group:
 
     @property
     def player_levels_str(self) -> str:
-        out = (
-            "`" * 3
-            + "diff\n"
-            + "\n".join([f"- {player.member.display_name}:" f" {player.level_str}" for player in self.players])
-            + "\n```"
-        )
+        out = "```diff\n"
+        for player in self.players:
+            markers = ", ".join(
+                [
+                    mark
+                    for role_id, mark in ROLE_MARKERS.items()
+                    if discord.utils.find(lambda r: r.id == role_id, player.member.roles)
+                ]
+            )
+            out += f"- {player.member.display_name}: {player.level_str}" f"{f' [{markers}]' if markers else ''}\n"
+        out += "```"
+        return out
+
+    @property
+    def tier_str(self) -> str:
+        tiers = set()
+
+        for player in self.players:
+            tiers.add(player.tier)
+
+        out = "/".join(map(str, sorted(tiers)))
+        out = "__" + out + "__"
+
         return out
 
     def __repr__(self):

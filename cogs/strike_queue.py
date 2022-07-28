@@ -33,6 +33,7 @@ class StrikeQueue(commands.Cog):
         self.db = self.bot.mdb["strike_queue"]
         self.gate_db = bot.mdb["gate_list"]
         self.data_db = self.bot.mdb["queue_analytics"]
+        self.r_db = self.bot.mdb["reinforcement_analytics"]
 
     async def cog_check(self, ctx):
         if not ctx.guild:
@@ -173,6 +174,21 @@ class StrikeQueue(commands.Cog):
             # if role:
             #     await p.add_roles(role, reason='Strike Queue Signup, adding role.')
 
+        # reinforcement analytics
+
+        dm_info = await self.bot.mdb["dm_analytics"].find_one({"_id": gate_data.get("owner", None)})
+        last_gate = dm_info["dm_gates"][-1]
+
+        await self.r_db.insert_one(
+            {
+                "type": "strike_team",
+                "user_ids": [p.id for p in people],
+                "dm_id": gate_data["owner"],
+                "gate_name": gate_name.lower(),
+                "gate_info": last_gate,
+            }
+        )
+
         for person in dms:
             await self.db.delete_one({"_id": person.get("_id")})
 
@@ -219,6 +235,23 @@ class StrikeQueue(commands.Cog):
 
         try:
             await self.db.delete_one({"_id": ctx.author.id})
+        except:
+            pass
+        else:
+            await self.update_queue()
+
+        await ctx.send(embed=embed, delete_after=10)
+
+    @strike.command(name="remove")
+    @has_role("Admin")
+    async def strike_remove(self, ctx, to_remove: discord.Member):
+        """Remove a member from the Strike Queue."""
+        embed = create_default_embed(ctx)
+        embed.title = "User Removed from Queue."
+        embed.description = f"{to_remove.mention} has been removed from queue, if they were in it."
+
+        try:
+            await self.db.delete_one({"_id": to_remove.id})
         except:
             pass
         else:
