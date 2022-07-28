@@ -319,15 +319,16 @@ class QueueChannel(commands.Cog):
         serv = self.bot.get_guild(self.server_id)
         # Take the gate off the list, save to DB & Update Embed
         popped: Group = queue.groups.pop(group - 1)
+
+        # update marks
+        for player in popped.players:
+            await self.mark_db.update_one({"_id": player.member.id}, {"$set": {"marked": False}})
+
         await queue.update(self.bot, self.queue_db, serv.get_channel(self.channel_id))
 
         summons_channel_id = (
             constants.SUMMONS_CHANNEL if self.bot.environment != "testing" else constants.DEBUG_SUMMONS_CHANNEL
         )
-
-        # update marks
-        for player in popped.players:
-            await self.mark_db.update_one({"_id": player.member.id}, {"$set": {"marked": False}})
 
         # update analytics
 
@@ -803,7 +804,7 @@ class QueueChannel(commands.Cog):
     # Owner/Admin Commands
     @commands.command(name="lock")
     @commands.check_any(commands.is_owner(), has_role("Assistant"))
-    async def lockqueue(self, ctx, *, reason: str = None):
+    async def lock_queue(self, ctx, *, reason: str = None):
         """Locks the queue channel. Admin only."""
         # get the channel
         queue_channel: discord.TextChannel = ctx.guild.get_channel(self.channel_id)
@@ -817,7 +818,7 @@ class QueueChannel(commands.Cog):
 
         # new perms
         perms = queue_channel.overwrites
-        player_perms = perms.get(player_role)
+        player_perms = perms.get(player_role, discord.PermissionOverwrite())
         player_perms.update(send_messages=False)
         perms.update({player_role: player_perms})
 
@@ -837,10 +838,16 @@ class QueueChannel(commands.Cog):
             embed.add_field(name="Reason", value=reason)
         await queue_channel.send(embed=embed)
 
+        # resolve queue
+        queue = await queue_from_guild(self.queue_db, ctx.guild)
+
+        serv = self.bot.get_guild(self.server_id)
+        await queue.update(self.bot, self.queue_db, serv.get_channel(self.channel_id))
+
     # Owner/Admin Commands
     @commands.command(name="unlock")
     @commands.check_any(commands.is_owner(), has_role("Assistant"))
-    async def unlockqueue(self, ctx, *, reason: str = None):
+    async def unlock_queue(self, ctx, *, reason: str = None):
         """Unlocks the queue channel. Admin only."""
         # get the channel
         queue_channel: discord.TextChannel = ctx.guild.get_channel(self.channel_id)
@@ -888,6 +895,9 @@ class QueueChannel(commands.Cog):
                 if em.title == "Queue Channel Locked":
                     await try_delete(msg)
                     break
+
+        serv = self.bot.get_guild(self.server_id)
+        await queue.update(self.bot, self.queue_db, serv.get_channel(self.channel_id))
 
     @commands.command(name="empty")
     @commands.check_any(commands.is_owner(), has_role("Admin"))

@@ -1,6 +1,6 @@
 import discord
 
-from utils.constants import GROUP_SIZE, DEV_ID, ROLE_MARKERS
+from utils.constants import GROUP_SIZE, ROLE_MARKERS
 from utils.constants import TIERS as TIERS
 from utils.functions import create_queue_embed, try_delete
 
@@ -138,7 +138,7 @@ class Group:
             mark_info = await mark_db.find_one({"_id": player.member.id})
             post_fix = f'{"*" if mark_info.get("marked", False) else ""}{mark_info.get("custom", "")}'
             names.append(f"{player.mention}{post_fix}")
-        return ", ".join(names)
+        return discord.utils.escape_markdown(", ".join(names))
 
     def __repr__(self):
         return f"<Group {self.players=}, {self.tier=}, {self.position=}>"
