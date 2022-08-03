@@ -26,7 +26,10 @@ class Gate:
         self.dm = dm
 
     def __repr__(self):
-        return f"<Gate ic={self.ic_channel.id}, ooc={self.ooc_channel.id}, dice={self.dice_channel.id}, owner={self.dm}"
+        return (
+            f"<Gate name={self.name}, ic={self.ic_channel.id}, ooc={self.ooc_channel.id}, "
+            f"dice={self.dice_channel.id}, owner={self.dm}>"
+        )
 
 
 class GateTracker(commands.Cog):
@@ -44,21 +47,23 @@ class GateTracker(commands.Cog):
         guild = self.bot.get_guild(self.server_id)
         for gate in all_gates:
             if not gate.get("owner"):
-                log.warning("No owner for " + gate.get("name"))
+                log.warning("[GateTracker] No owner for " + gate.get("name"))
                 continue
+
             name = gate["name"]
             ic_c = discord.utils.find(lambda c: c.name == f"{name}-ic", guild.channels)
             ooc_c = discord.utils.find(lambda c: c.name == f"{name}-ooc", guild.channels)
             dice_c = discord.utils.find(lambda c: c.name == f"{name}-dice", guild.channels)
-            if [True for c in (ic_c, ooc_c, dice_c) if c is None]:
-                log.error("Could not find a channel for " + name)
+            if not all((ic_c, ooc_c, dice_c)):
+                log.error("[GateTracker] Could not find a channel for " + name)
 
             owner = guild.get_member(gate.get("owner"))
             if not owner:
-                log.error("Could not find DM for " + name)
+                log.error("[GateTracker] Could not find DM for " + name)
 
             gate = Gate(name, ic_c, ooc_c, dice_c, owner)
             self.gates.append(gate)
+        log.info("[GateTracker] All gates loaded.")
 
     async def cog_unload(self):
         self.gates = []
@@ -81,6 +86,21 @@ class GateTracker(commands.Cog):
         )
         await ctx.send(embed=embed)
         return None
+
+    @commands.command(name="gate-owners")
+    @has_role("Assistant")
+    async def show_gate_owners(self, ctx):
+        """
+        Shows known owners of gates.
+        If your gate is not on this list, please run `=claim-gate <gate name>`
+        """
+        data = await self.gates_db.find({"owner": {"$exists": True}}).to_list(length=None)
+        embed = create_default_embed(ctx, title="Gate Owners")
+        description = "\n".join(
+            [f"<@{item.get('owner')}> - {item.get('name').title()} Gate {item.get('emoji')}" for item in data]
+        )
+        embed.description = description
+        await ctx.send(embed=embed)
 
 
 def setup(bot):
