@@ -87,7 +87,7 @@ class DMQueue(commands.Cog):
 
         for i, item in enumerate(data):
             member = guild.get_member(item.get("_id"))
-            cur = f'**#{i + 1}.** {member.mention} - {item.get("ranks").title()}'
+            cur = f'**#{i + 1}.** {member.mention} - {item.get("ranks")}'
             out.append(cur)
 
         embed.description = "\n".join(out)
