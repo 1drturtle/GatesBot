@@ -218,7 +218,7 @@ class Gates(commands.Cog):
             last_msg = await self.active_db.find_one({"_id": x.id})
             last_msg = (
                 f'<t:{pendulum.instance(last_msg.get("last_post")).int_timestamp}:R>'
-                if last_msg.get("last_post")
+                if last_msg and last_msg.get("last_post")
                 else "Unknown"
             )
             desc.append(f"| {x.display_name} | {last_msg} |")
