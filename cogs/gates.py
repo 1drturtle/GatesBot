@@ -1,8 +1,10 @@
 import datetime
 import logging
 from collections import namedtuple
+from typing import List
 
 import discord
+import pendulum
 from discord.ext import commands
 from discord.ext import tasks
 
@@ -178,27 +180,54 @@ class Gates(commands.Cog):
 
         return await ctx.send(embed=embed)
 
+    @commands.Cog.listener(name="on_message")
+    async def activity_listener(self, message):
+        """
+        Listens to a message to see if it's a placeholder in an IC channel.
+        """
+
+        # stop if we're not in the right guild
+        if not getattr(message.guild, "id", None) == self.server_id:
+            return
+
+        if message.author.bot:
+            return
+
+        # store the data
+        return await self.active_db.update_one(
+            {"_id": message.author.id},
+            {"$set": {"_id": message.author.id}, "$currentDate": {"last_post": True}},
+            upsert=True,
+        )
+
     @commands.command(name="inactive")
     @commands.check_any(commands.is_owner(), has_role("Admin"))
     async def inactive(self, ctx):
         q = self.bot.cogs["QueueChannel"]
         s = self.bot.get_guild(q.server_id)
 
-        pag = commands.Paginator()
-
-        out = []
+        out: List[discord.Member] = []
         for mem in s.members:
             if mem.bot:
                 continue
             if not discord.utils.find(lambda r: r.name == "Active", mem.roles):
                 out.append(mem)
 
-        pag.add_line("-- Members without Active role --\n")
+        desc = [f"| {'Member Name':^30} | {'Last Message':^30} |"]
         for x in out:
-            pag.add_line(f"- {x.display_name}")
+            last_msg = await self.active_db.find_one({"_id": x.id})
+            last_msg = (
+                f'<t:{pendulum.instance(last_msg.get("last_post")).int_timestamp}:f>'
+                if last_msg.get("last_post")
+                else "Unknown"
+            )
+            desc.append(f"| {x.display_name} | {last_msg} |")
 
-        for page in pag.pages:
-            await ctx.send(page)
+        embed = create_default_embed(ctx)
+        embed.title = "Inactive Users"
+        embed.description = "\n".join(desc)
+
+        await ctx.send(embed=embed)
 
 
 def setup(bot):
