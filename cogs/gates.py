@@ -217,7 +217,7 @@ class Gates(commands.Cog):
         for x in out:
             last_msg = await self.active_db.find_one({"_id": x.id})
             last_msg = (
-                f'<t:{pendulum.instance(last_msg.get("last_post")).int_timestamp}:f>'
+                f'<t:{pendulum.instance(last_msg.get("last_post")).int_timestamp}:R>'
                 if last_msg.get("last_post")
                 else "Unknown"
             )
