@@ -158,7 +158,7 @@ class DMQueue(commands.Cog):
             f" Kindly note that this is a **{len(group.players)} person Rank {group.tier_str}** "
             f"group and adjust your encounter as needed."
             f" Please react to this message if you are, indeed, claiming."
-            f" **__Double check the Group # in <#773895672415649832> when claiming please!__**"
+            f" **__Please double-check your group number in <#773895672415649832> when claiming because it may have changed.__**"
         )
         embed = create_queue_embed(self.bot)
         embed.title = "Gate Assignment"
