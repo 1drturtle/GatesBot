@@ -37,7 +37,11 @@ class GateTracker(commands.Cog):
         self.bot = bot
         self.gates_db = self.bot.mdb["gate_list"]
         self.tracker_db = self.bot.mdb["gate_tracker"]
-        self.server_id = constants.GATES_SERVER if self.bot.environment != "testing" else constants.DEBUG_SERVER
+        self.server_id = (
+            constants.GATES_SERVER
+            if self.bot.environment != "testing"
+            else constants.DEBUG_SERVER
+        )
         self.gates = []
 
     async def cog_load(self):
@@ -52,8 +56,12 @@ class GateTracker(commands.Cog):
 
             name = gate["name"]
             ic_c = discord.utils.find(lambda c: c.name == f"{name}-ic", guild.channels)
-            ooc_c = discord.utils.find(lambda c: c.name == f"{name}-ooc", guild.channels)
-            dice_c = discord.utils.find(lambda c: c.name == f"{name}-dice", guild.channels)
+            ooc_c = discord.utils.find(
+                lambda c: c.name == f"{name}-ooc", guild.channels
+            )
+            dice_c = discord.utils.find(
+                lambda c: c.name == f"{name}-dice", guild.channels
+            )
             if not all((ic_c, ooc_c, dice_c)):
                 log.error("[GateTracker] Could not find a channel for " + name)
 
@@ -65,7 +73,7 @@ class GateTracker(commands.Cog):
             self.gates.append(gate)
         log.info("[GateTracker] All gates loaded.")
 
-    async def cog_unload(self):
+    def cog_unload(self):
         self.gates = []
 
     @commands.command(name="claim-gate")
@@ -73,10 +81,14 @@ class GateTracker(commands.Cog):
     async def claim_gate(self, ctx, gate_name: str):
         """Claim a gate as yours in the bot's database."""
         if not (data := await self.gates_db.find_one({"name": gate_name.lower()})):
-            await ctx.send(f"Gate `{gate_name}` not found, please run command with a valid gate name.")
+            await ctx.send(
+                f"Gate `{gate_name}` not found, please run command with a valid gate name."
+            )
             return None
 
-        await self.gates_db.update_one({"_id": data["_id"]}, {"$set": {"owner": ctx.author.id}})
+        await self.gates_db.update_one(
+            {"_id": data["_id"]}, {"$set": {"owner": ctx.author.id}}
+        )
 
         embed = create_default_embed(
             ctx,
@@ -94,10 +106,15 @@ class GateTracker(commands.Cog):
         Shows known owners of gates.
         If your gate is not on this list, please run `=claim-gate <gate name>`
         """
-        data = await self.gates_db.find({"owner": {"$exists": True}}).to_list(length=None)
+        data = await self.gates_db.find({"owner": {"$exists": True}}).to_list(
+            length=None
+        )
         embed = create_default_embed(ctx, title="Gate Owners")
         description = "\n".join(
-            [f"<@{item.get('owner')}> - {item.get('name').title()} Gate {item.get('emoji')}" for item in data]
+            [
+                f"<@{item.get('owner')}> - {item.get('name').title()} Gate {item.get('emoji')}"
+                for item in data
+            ]
         )
         embed.description = description
         await ctx.send(embed=embed)
