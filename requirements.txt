@@ -1,13 +1,13 @@
 # Core (Discord)
-disnake[discord]==2.4.0
+disnake[discord]>=2.4.0
 # git+https://github.com/Rapptz/discord-ext-menus
 
 # Time
-pendulum==2.1.2
+pendulum>=2.1.2
 
 # Database
-motor==2.3.0
-dnspython==2.0.0
+motor==3.1.1
+dnspython>=2.0.0
 
 # Error Handling/Debugging
 sentry-sdk==0.19.2

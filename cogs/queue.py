@@ -41,7 +41,9 @@ def parse_player_class(class_str) -> dict:
         subclass = match[0].strip() or "None"
 
         out["total_level"] += level
-        out["classes"].append({"class": player_class, "subclass": subclass, "level": level})
+        out["classes"].append(
+            {"class": player_class, "subclass": subclass, "level": level}
+        )
 
     return out
 
@@ -71,15 +73,20 @@ def length_check(group_length, requested_length):
 async def check_level_role(player: Player):
     level = player.total_level
     level_role = f"Level {level}"
-    has_level_role = discord.utils.find(lambda r: r.name == level_role, player.member.roles)
+    has_level_role = discord.utils.find(
+        lambda r: r.name == level_role, player.member.roles
+    )
 
     if has_level_role:
         return None
 
-    wrong_role = discord.utils.find(lambda r: r.name.lower().startswith("level"), player.member.roles)
+    wrong_role = discord.utils.find(
+        lambda r: r.name.lower().startswith("level"), player.member.roles
+    )
     if not wrong_role:
         return await player.member.send(
-            "Hi! You currently do not have a level role. Grab one from near the top of" " <#874436255088275496>!"
+            "Hi! You currently do not have a level role. Grab one from near the top of"
+            " <#874436255088275496>!"
         )
     else:
         return await player.member.send(
@@ -111,8 +118,16 @@ class QueueChannel(commands.Cog):
 
         self.mark_db = self.bot.mdb["player_marked"]
 
-        self.server_id = constants.GATES_SERVER if self.bot.environment != "testing" else constants.DEBUG_SERVER
-        self.channel_id = constants.GATES_CHANNEL if self.bot.environment != "testing" else constants.DEBUG_CHANNEL
+        self.server_id = (
+            constants.GATES_SERVER
+            if self.bot.environment != "testing"
+            else constants.DEBUG_SERVER
+        )
+        self.channel_id = (
+            constants.GATES_CHANNEL
+            if self.bot.environment != "testing"
+            else constants.DEBUG_CHANNEL
+        )
 
         self.update_bot_status.start()
 
@@ -132,7 +147,9 @@ class QueueChannel(commands.Cog):
         if message.guild is None:
             return None
 
-        if not (self.server_id == message.guild.id and self.channel_id == message.channel.id):
+        if not (
+            self.server_id == message.guild.id and self.channel_id == message.channel.id
+        ):
             return None
 
         if not line_re.match(message.content):
@@ -145,7 +162,9 @@ class QueueChannel(commands.Cog):
         except discord.HTTPException:
             pass  # We ignore Discord being weird!
         except (discord.NotFound, discord.Forbidden) as e:
-            log.error(f"{e.__class__.__name__} error while adding reaction to queue post.")
+            log.error(
+                f"{e.__class__.__name__} error while adding reaction to queue post."
+            )
 
         # Get Player Details (Classes/Subclasses, total level)
         player_details = parse_player_class(line_re.sub("", message.content).strip())
@@ -155,7 +174,9 @@ class QueueChannel(commands.Cog):
         await check_level_role(player)
 
         # Get our Queue
-        queue = await queue_from_guild(self.queue_db, self.bot.get_guild(self.server_id))
+        queue = await queue_from_guild(
+            self.queue_db, self.bot.get_guild(self.server_id)
+        )
 
         # Are we already in a Queue?
         if queue.in_queue(player.member.id):
@@ -199,7 +220,9 @@ class QueueChannel(commands.Cog):
             "$inc": {"gate_signup_count": 1},
         }
 
-        await self.old_player_data_db.update_one({"user_id": message.author.id}, data, upsert=True)
+        await self.old_player_data_db.update_one(
+            {"user_id": message.author.id}, data, upsert=True
+        )
 
         # Update Queue
         channel = self.bot.get_channel(self.channel_id)
@@ -211,7 +234,10 @@ class QueueChannel(commands.Cog):
         """Lists all of the current registered Gates."""
         gates = await self.gate_list_db.find().to_list(None)
         embed = create_default_embed(ctx)
-        out = [f':white_small_square: {gate["name"].title()} Gate - {gate["emoji"]}' for gate in gates]
+        out = [
+            f':white_small_square: {gate["name"].title()} Gate - {gate["emoji"]}'
+            for gate in gates
+        ]
 
         embed.title = "List of Registered Gates"
         embed.description = "\n".join(out)
@@ -226,7 +252,9 @@ class QueueChannel(commands.Cog):
         **Will override if there is a gate with the same name!!**
         """
         await self.gate_list_db.update_one(
-            {"name": gate_name}, {"$set": {"name": gate_name.lower(), "emoji": gate_emoji}}, upsert=True
+            {"name": gate_name},
+            {"$set": {"name": gate_name.lower(), "emoji": gate_emoji}},
+            upsert=True,
         )
         embed = create_default_embed(ctx)
         embed.title = "New Gate Created!"
@@ -254,16 +282,18 @@ class QueueChannel(commands.Cog):
 
     @commands.command(name="claim")
     @commands.check_any(has_role("DM"), commands.is_owner())
-    async def claim_group(self, ctx, group: int, gate_name: str, reinforcement: str = ""):
+    async def claim_group(
+        self, ctx, group: int, gate_name: str, reinforcement: str = ""
+    ):
         """Claims a group from the queue."""
         queue = await queue_from_guild(self.queue_db, ctx.guild)
         gate = await self.gate_list_db.find_one({"name": gate_name.lower()})
         if gate is None:
             return await ctx.send("Invalid Gate Name!")
 
-        if not gate.get("owner"):
-            # update DM gate ownership
-            await self.gate_list_db.update_one({"name": gate["name"]}, {"$set": {"owner": ctx.author.id}})
+        await self.gate_list_db.update_one(
+            {"name": gate["name"]}, {"$set": {"owner": ctx.author.id}}
+        )
 
         length = len(queue.groups)
         check = length_check(length, group)
@@ -276,14 +306,18 @@ class QueueChannel(commands.Cog):
 
         # update marks
         player_ids = [p.member.id for p in popped.players]
-        await self.mark_db.update_many({"_id": {"$in": player_ids}}, {"$set": {"marked": False}})
+        await self.mark_db.update_many(
+            {"_id": {"$in": player_ids}}, {"$set": {"marked": False}}
+        )
         # for player in popped.players:
         #     await self.mark_db.update_one({"_id": player.member.id}, {"$set": {"marked": False}})
 
         await queue.update(self.bot, self.queue_db, serv.get_channel(self.channel_id))
 
         summons_channel_id = (
-            constants.SUMMONS_CHANNEL if self.bot.environment != "testing" else constants.DEBUG_SUMMONS_CHANNEL
+            constants.SUMMONS_CHANNEL
+            if self.bot.environment != "testing"
+            else constants.DEBUG_SUMMONS_CHANNEL
         )
 
         # update analytics
@@ -295,10 +329,18 @@ class QueueChannel(commands.Cog):
         raw_gate["claimed_date"] = datetime.datetime.utcnow()
         raw_gate.pop("position")
         if reinforcement:
-            dm_info = await self.bot.mdb["dm_analytics"].find_one({"_id": gate.get("owner", None)})
+            dm_info = await self.bot.mdb["dm_analytics"].find_one(
+                {"_id": gate.get("owner", None)}
+            )
             last_gate = dm_info["dm_gates"][-1]
 
-            await self.r_db.insert_one({"type": "reinforcements", "gate_info": last_gate, "dm_id": gate["owner"]})
+            await self.r_db.insert_one(
+                {
+                    "type": "reinforcements",
+                    "gate_info": last_gate,
+                    "dm_id": gate["owner"],
+                }
+            )
         else:
             # dm_assign_analytics
             _assign_analytics_data = await self.dm_assign_analytics.find(
@@ -334,12 +376,17 @@ class QueueChannel(commands.Cog):
             analytics_data = {
                 "$set": {"user_id": player.member.id, "last_gate_name": gate["name"]},
                 "$currentDate": {"last_gate_summoned": True},
-                "$inc": {f"gates_summoned_per_level.{str(player.total_level)}": 1, "gate_summon_count": 1},
+                "$inc": {
+                    f"gates_summoned_per_level.{str(player.total_level)}": 1,
+                    "gate_summon_count": 1,
+                },
             }
             gate_analytics_data["levels"][str(player.total_level)] = (
                 int(gate_analytics_data["levels"].get(str(player.total_level), "0")) + 1
             )
-            await self.old_player_data_db.update_one({"user_id": player.member.id}, analytics_data, upsert=True)
+            await self.old_player_data_db.update_one(
+                {"user_id": player.member.id}, analytics_data, upsert=True
+            )
 
         await self.old_gates_db.insert_one(gate_analytics_data)
 
@@ -347,7 +394,11 @@ class QueueChannel(commands.Cog):
 
         summons_ch = serv.get_channel(summons_channel_id)
         assignments_ch = serv.get_channel(874795661198000208)
-        assignments_str = f"<#{assignments_ch.id}>" if assignments_ch is not None else "#gate-assignments-v2"
+        assignments_str = (
+            f"<#{assignments_ch.id}>"
+            if assignments_ch is not None
+            else "#gate-assignments-v2"
+        )
 
         # sort players by display name
         out_players = sorted(popped.players, key=lambda x: x.member.display_name)
@@ -373,7 +424,9 @@ class QueueChannel(commands.Cog):
                     f' and grab the {gate["emoji"]} from the list and head over to the gate!\n'
                     f"Claimed by {ctx.author.mention}"
                 )
-            await summons_ch.send(msg, allowed_mentions=discord.AllowedMentions(users=True))
+            await summons_ch.send(
+                msg, allowed_mentions=discord.AllowedMentions(users=True)
+            )
         log.info(f"[Queue] Gate #{group} ({gate_name} gate) claimed by {ctx.author}.")
 
     @commands.command(name="leave")
@@ -385,7 +438,8 @@ class QueueChannel(commands.Cog):
         group_index = queue.in_queue(ctx.author.id)
         if group_index is None:
             return await ctx.send(
-                "You are not currently in the queue, so I cannot remove you from it.", delete_after=10
+                "You are not currently in the queue, so I cannot remove you from it.",
+                delete_after=10,
             )
 
         # Pop the Player from the Group and Update!
@@ -401,20 +455,27 @@ class QueueChannel(commands.Cog):
             "$inc": {"gate_signup_count": -1},
         }
 
-        await self.old_player_data_db.update_one({"user_id": ctx.author.id}, data, upsert=True)
+        await self.old_player_data_db.update_one(
+            {"user_id": ctx.author.id}, data, upsert=True
+        )
 
-        return await ctx.send(f"You have been removed from group #{group_index[0] + 1}", delete_after=10)
+        return await ctx.send(
+            f"You have been removed from group #{group_index[0] + 1}", delete_after=10
+        )
 
     @commands.command(name="move")
     @commands.check_any(has_role("Assistant"), commands.is_owner())
-    async def move_player(self, ctx, original_group: int, player: discord.Member, new_group: int):
+    async def move_player(
+        self, ctx, original_group: int, player: discord.Member, new_group: int
+    ):
         """Moves a player to a different group. Requires the Assistant role."""
         queue = await queue_from_guild(self.queue_db, ctx.guild)
 
         group_index = queue.in_queue(player.id)
         if group_index is None:
             return await ctx.send(
-                f"{player.mention} is not currently in the queue, so I cannot remove them from it.", delete_after=10
+                f"{player.mention} is not currently in the queue, so I cannot remove them from it.",
+                delete_after=10,
             )
 
         queue.groups.sort(key=lambda x: x.tier)
@@ -436,13 +497,18 @@ class QueueChannel(commands.Cog):
                 old_index = i
                 break
         if old_index is None:
-            return await ctx.send(f"Could not find {player.mention} in Group #{original_group}")
+            return await ctx.send(
+                f"Could not find {player.mention} in Group #{original_group}"
+            )
         old_player = queue.groups[original_group - 1].players.pop(old_index)
         queue.groups[new_group - 1].players.append(old_player)
         await queue.update(self.bot, self.queue_db, serv.get_channel(self.channel_id))
-        log.info(f"[Queue] {ctx.author} moved {player} from group #{original_group} to group #{new_group}.")
+        log.info(
+            f"[Queue] {ctx.author} moved {player} from group #{original_group} to group #{new_group}."
+        )
         return await ctx.send(
-            f"{player.mention} has been moved from Group #{original_group} to Group #{new_group}", delete_after=10
+            f"{player.mention} has been moved from Group #{original_group} to Group #{new_group}",
+            delete_after=10,
         )
 
     @commands.command(name="queue")
@@ -462,7 +528,8 @@ class QueueChannel(commands.Cog):
         group_index = queue.in_queue(player.id)
         if group_index is None:
             return await ctx.send(
-                f"{player.mention} was not in the queue, so they have not been removed.", delete_after=10
+                f"{player.mention} was not in the queue, so they have not been removed.",
+                delete_after=10,
             )
 
         # Pop the Player from the Group and Update!
@@ -471,7 +538,10 @@ class QueueChannel(commands.Cog):
         await queue.update(self.bot, self.queue_db, serv.get_channel(self.channel_id))
 
         log.info(f"[Queue] {ctx.author} removed {player} from Queue.")
-        return await ctx.send(f"{player.mention} has been removed from Group #{group_index[0] + 1}", delete_after=10)
+        return await ctx.send(
+            f"{player.mention} has been removed from Group #{group_index[0] + 1}",
+            delete_after=10,
+        )
 
     @commands.command(name="gateinfo", aliases=["groupinfo"])
     async def group_info(self, ctx, group_number: int):
@@ -504,7 +574,8 @@ class QueueChannel(commands.Cog):
         group_index = queue.in_queue(member.id)
         if group_index is None:
             return await ctx.send(
-                f"{member.mention} was not in the queue, so they have not been moved.", delete_after=10
+                f"{member.mention} was not in the queue, so they have not been moved.",
+                delete_after=10,
             )
 
         group: Group = queue.groups[group_index[0]]
@@ -512,15 +583,22 @@ class QueueChannel(commands.Cog):
 
         new_group = Group([player], player.tier)
         queue.groups.insert(group_index[0] + 1, new_group)
-        await queue.update(self.bot, self.queue_db, ctx.guild.get_channel(self.channel_id))
+        await queue.update(
+            self.bot, self.queue_db, ctx.guild.get_channel(self.channel_id)
+        )
 
         log.info(f"[Queue] {ctx.author} created rank {player.tier} gate from {member}.")
-        return await ctx.send(f"{player.mention} has been moved to a new tier {new_group.tier} group!", delete_after=10)
+        return await ctx.send(
+            f"{player.mention} has been moved to a new tier {new_group.tier} group!",
+            delete_after=10,
+        )
 
     @commands.command(name="shuffle")
     @commands.check_any(has_role("Admin"), commands.is_owner())
     @commands.guild_only()
-    async def shuffle_groups(self, ctx, tier: int, group_size: int = constants.GROUP_SIZE):
+    async def shuffle_groups(
+        self, ctx, tier: int, group_size: int = constants.GROUP_SIZE
+    ):
         """
         Shuffles the Queue. Warning! This action is __irrevocable__.
         Requires the Admin role.
@@ -546,7 +624,9 @@ class QueueChannel(commands.Cog):
                 new_group = Group.new(player.tier, [player])
                 queue.groups.append(new_group)
 
-        await queue.update(self.bot, self.queue_db, ctx.guild.get_channel(self.channel_id))
+        await queue.update(
+            self.bot, self.queue_db, ctx.guild.get_channel(self.channel_id)
+        )
 
         log.info(f"[Queue] Rank {tier} shuffled by {ctx.author} (GS {group_size})")
         return await ctx.send(
@@ -565,7 +645,9 @@ class QueueChannel(commands.Cog):
             return None
 
         groups = len(queue.groups)
-        status = discord.Activity(name=f"{groups} Queue Groups!", type=discord.ActivityType.watching)
+        status = discord.Activity(
+            name=f"{groups} Queue Groups!", type=discord.ActivityType.watching
+        )
         await self.bot.change_presence(activity=status)
 
     @update_bot_status.before_loop
@@ -596,7 +678,10 @@ class QueueChannel(commands.Cog):
         for group in queue.groups:
             groups[group.tier] = groups.get(group.tier, 0) + 1
         group_str = (
-            "\n".join(f'**Tier {tier}**: {amt} group{"s" if amt != 1 else ""}' for tier, amt in groups.items())
+            "\n".join(
+                f'**Tier {tier}**: {amt} group{"s" if amt != 1 else ""}'
+                for tier, amt in groups.items()
+            )
             or "No groups in queue."
         )
         embed.add_field(name="Group Stats", value=group_str)
@@ -615,7 +700,10 @@ class QueueChannel(commands.Cog):
         embed = create_default_embed(ctx, title="GatesBot Analytics")
 
         # num of gates
-        embed.add_field(name="Total # of Gates Summoned", value=f"{len(data)} Gates Summoned since 3/27/2021")
+        embed.add_field(
+            name="Total # of Gates Summoned",
+            value=f"{len(data)} Gates Summoned since 3/27/2021",
+        )
 
         # average gate tier
 
@@ -626,9 +714,14 @@ class QueueChannel(commands.Cog):
         # Most summoned-to gate
         most_summoned = dict()
         for item in data:
-            most_summoned[item.get("gate_name")] = most_summoned.get(item.get("gate_name"), 0) + 1
+            most_summoned[item.get("gate_name")] = (
+                most_summoned.get(item.get("gate_name"), 0) + 1
+            )
         most_summoned = max(most_summoned.items(), key=lambda x: x[1])
-        embed.add_field(name="Most-Summoned Gate", value=f"{most_summoned[0]} Gate - {most_summoned[1]} summons.")
+        embed.add_field(
+            name="Most-Summoned Gate",
+            value=f"{most_summoned[0]} Gate - {most_summoned[1]} summons.",
+        )
 
         await ctx.send(embed=embed)
 
@@ -679,7 +772,9 @@ class QueueChannel(commands.Cog):
 
         data = await self.bot.mdb["queue_analytics"].find_one({"user_id": who.id})
         if data is None:
-            raise commands.BadArgument(f"Could not find any data for {who.display_name}!")
+            raise commands.BadArgument(
+                f"Could not find any data for {who.display_name}!"
+            )
 
         embed.title = f"Queue Data - {who.display_name}"
         now = pendulum.now(tz=pendulum.tz.UTC)
@@ -704,7 +799,11 @@ class QueueChannel(commands.Cog):
             for k, v in data["gates_summoned_per_level"].items():
                 out.append(f'+ Level {k}: {v} gate{"s" if v != 1 else ""}')
             out.append("```")
-            embed.add_field(name="Gates Per Player Level (Summoned)", value="\n".join(out), inline=False)
+            embed.add_field(
+                name="Gates Per Player Level (Summoned)",
+                value="\n".join(out),
+                inline=False,
+            )
 
         return await ctx.send(embed=embed)
 
@@ -724,14 +823,17 @@ class QueueChannel(commands.Cog):
             player_cache.append(player)
 
         # top levels
-        levels_sorted = sorted(player_cache, key=lambda x: x["last"].get("level"), reverse=True)[:10]
+        levels_sorted = sorted(
+            player_cache, key=lambda x: x["last"].get("level"), reverse=True
+        )[:10]
         embed.add_field(
             name="Highest (known) Level",
             value="```"
             + (
                 "\n".join(
                     [
-                        f'{i + 1}. {x["last"].get("name") or "Unknown"}' f' (L{x["last"].get("level") or "??"})'
+                        f'{i + 1}. {x["last"].get("name") or "Unknown"}'
+                        f' (L{x["last"].get("level") or "??"})'
                         for i, x in enumerate(levels_sorted)
                     ]
                 )
@@ -740,14 +842,17 @@ class QueueChannel(commands.Cog):
         )
 
         # top # of gates
-        gates_sorted = sorted(player_cache, key=lambda x: x.get("gate_summon_count", 0), reverse=True)[:10]
+        gates_sorted = sorted(
+            player_cache, key=lambda x: x.get("gate_summon_count", 0), reverse=True
+        )[:10]
         embed.add_field(
             name="Gates Summoned To",
             value="```"
             + (
                 "\n".join(
                     [
-                        f'{i + 1}. {x["last"].get("name") or "Unknown"}' f': {x.get("gate_summon_count") or "0"}'
+                        f'{i + 1}. {x["last"].get("name") or "Unknown"}'
+                        f': {x.get("gate_summon_count") or "0"}'
                         for i, x in enumerate(gates_sorted)
                     ]
                 )
@@ -765,12 +870,20 @@ class QueueChannel(commands.Cog):
         # get the channel
         queue_channel: discord.TextChannel = ctx.guild.get_channel(self.channel_id)
         if queue_channel is None:
-            return await ctx.author.send("Could not find queue channel, aborting channel lock.")
-        player_role: discord.Role = discord.utils.find(lambda r: r.name.lower() == "player", ctx.guild.roles)
+            return await ctx.author.send(
+                "Could not find queue channel, aborting channel lock."
+            )
+        player_role: discord.Role = discord.utils.find(
+            lambda r: r.name.lower() == "player", ctx.guild.roles
+        )
         if player_role is None:
-            return await ctx.author.send("Could not find Player role, aborting channel lock.")
+            return await ctx.author.send(
+                "Could not find Player role, aborting channel lock."
+            )
 
-        log.info(f"Queue has been locked by {ctx.author.name}#{ctx.author.discriminator}")
+        log.info(
+            f"Queue has been locked by {ctx.author.name}#{ctx.author.discriminator}"
+        )
 
         # new perms
         perms = queue_channel.overwrites
@@ -788,7 +901,8 @@ class QueueChannel(commands.Cog):
         embed = create_default_embed(ctx)
         embed.title = "Queue Channel Locked"
         embed.description = (
-            f"The queue channel has been temporarily locked by " f"{ctx.author.name}#{ctx.author.discriminator}."
+            f"The queue channel has been temporarily locked by "
+            f"{ctx.author.name}#{ctx.author.discriminator}."
         )
         if reason:
             embed.add_field(name="Reason", value=reason)
@@ -808,16 +922,26 @@ class QueueChannel(commands.Cog):
         # get the channel
         queue_channel: discord.TextChannel = ctx.guild.get_channel(self.channel_id)
         if queue_channel is None:
-            return await ctx.author.send("Could not find queue channel, aborting channel unlock.")
-        player_role: discord.Role = discord.utils.find(lambda r: r.name.lower() == "player", ctx.guild.roles)
+            return await ctx.author.send(
+                "Could not find queue channel, aborting channel unlock."
+            )
+        player_role: discord.Role = discord.utils.find(
+            lambda r: r.name.lower() == "player", ctx.guild.roles
+        )
         if player_role is None:
-            return await ctx.author.send("Could not find Player role, aborting channel unlock.")
+            return await ctx.author.send(
+                "Could not find Player role, aborting channel unlock."
+            )
 
-        log.info(f"Queue has been unlocked by {ctx.author.name}#{ctx.author.discriminator}")
+        log.info(
+            f"Queue has been unlocked by {ctx.author.name}#{ctx.author.discriminator}"
+        )
 
         # Mark timestamp
         await self.mark_db.update_one(
-            {"_mark": True}, {"$set": {"_mark": True, "timestamp": datetime.datetime.utcnow()}}, upsert=True
+            {"_mark": True},
+            {"$set": {"_mark": True, "timestamp": datetime.datetime.utcnow()}},
+            upsert=True,
         )
 
         # resolve queue
@@ -827,7 +951,9 @@ class QueueChannel(commands.Cog):
         for group in queue.groups:
             for player in group.players:
                 await self.mark_db.update_one(
-                    {"_id": player.member.id}, {"$set": {"_id": player.member.id, "marked": True}}, upsert=True
+                    {"_id": player.member.id},
+                    {"$set": {"_id": player.member.id, "marked": True}},
+                    upsert=True,
                 )
 
         # new perms
