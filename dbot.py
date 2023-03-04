@@ -25,7 +25,7 @@ COGS = {
     "cogs.strike_queue",
     "cogs.tracker",
     "cogs.to-do",
-    "cogs.avrae_listener",
+    # "cogs.avrae_listener",
 }
 
 

@@ -128,6 +128,11 @@ class QueueChannel(commands.Cog):
             if self.bot.environment != "testing"
             else constants.DEBUG_CHANNEL
         )
+        self.announcement_channel_id = (
+            constants.GATE_ANNOUNCEMENT_CHANNEL
+            if self.bot.environment != "testing"
+            else constants.GATE_ANNOUNCEMENT_CHANNEL_DEBUG
+        )
 
         self.update_bot_status.start()
 
@@ -962,7 +967,7 @@ class QueueChannel(commands.Cog):
         player_perms.update(send_messages=True)
         perms.update({player_role: player_perms})
 
-        # lock the channel
+        # unlock the channel
         await queue_channel.edit(
             reason=f"Channel unlock. Requested by {ctx.author.name}#{ctx.author.discriminator}."
             + (f"\nReason: {reason}" if reason else ""),
@@ -980,6 +985,11 @@ class QueueChannel(commands.Cog):
 
         serv = self.bot.get_guild(self.server_id)
         await queue.update(self.bot, self.queue_db, serv.get_channel(self.channel_id))
+
+        announce = serv.get_channel(self.announcement_channel_id)
+        await announce.send(
+            f"Players, <#{self.channel_id}> has been unlocked! Sign up to join the queue!"
+        )
 
     @commands.command(name="empty")
     @commands.check_any(commands.is_owner(), has_role("Admin"))
