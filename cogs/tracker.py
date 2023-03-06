@@ -67,7 +67,7 @@ class GateTracker(commands.Cog):
 
             owner = guild.get_member(gate.get("owner"))
             if not owner:
-                log.error("[GateTracker] Could not find DM for " + name)
+                log.error("[GateTracker] Could not find member for " + name)
 
             gate = Gate(name, ic_c, ooc_c, dice_c, owner)
             self.gates.append(gate)

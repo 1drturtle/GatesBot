@@ -25,6 +25,7 @@ COGS = {
     "cogs.strike_queue",
     "cogs.tracker",
     "cogs.to-do",
+    # "cogs.avrae_listener",
 }
 
 
@@ -71,12 +72,17 @@ class GatesBot(commands.Bot):
         return datetime.utcnow() - self.launch_time
 
 
-intents = discord.Intents(guilds=True, members=True, messages=True, reactions=True)
+intents = discord.Intents(
+    guilds=True, members=True, messages=True, reactions=True, message_content=True
+)
 
 description = "Discord Bot made for The Gates D&D Server."
 
 bot = GatesBot(
-    desc=description, intents=intents, allowed_mentions=discord.AllowedMentions.none(), test_guilds=[DEBUG_SERVER]
+    desc=description,
+    intents=intents,
+    allowed_mentions=discord.AllowedMentions.none(),
+    test_guilds=[DEBUG_SERVER],
 )
 
 log_formatter = logging.Formatter("%(levelname)s | %(name)s: %(message)s")

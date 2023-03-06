@@ -23,7 +23,11 @@ class Gates(commands.Cog):
         self.placeholder_db = bot.mdb["placeholder_events"]
         self.settings_db = bot.mdb["placeholder-settings"]
         self.active_db = bot.mdb["active_users"]
-        self.server_id = constants.GATES_SERVER if self.bot.environment != "testing" else constants.DEBUG_SERVER
+        self.server_id = (
+            constants.GATES_SERVER
+            if self.bot.environment != "testing"
+            else constants.DEBUG_SERVER
+        )
         self.db_task = self.check_db_placeholders.start()
 
     def cog_unload(self):
@@ -48,11 +52,15 @@ class Gates(commands.Cog):
         # get the member
         member = message.guild.get_member(message.author.id)
         if member is None:
-            log.info(f"could not find member info for user {message.author.name}#{message.author.discriminator}")
+            log.info(
+                f"could not find member info for user {message.author.name}#{message.author.discriminator}"
+            )
             return
 
         # stop if they don't have the role
-        if not discord.utils.find(lambda r: r.name == "Placeholder Notifications", member.roles):
+        if not discord.utils.find(
+            lambda r: r.name == "Placeholder Notifications", member.roles
+        ):
             return
 
         # stop if the channel is wrong
@@ -60,7 +68,12 @@ class Gates(commands.Cog):
             return
 
         # stop if there's no placeholder:
-        if not any([x in message.content.lower() for x in ["*ph*", "*placeholder*", "_ph_", "_placeholder_"]]):
+        if not any(
+            [
+                x in message.content.lower()
+                for x in ["*ph*", "*placeholder*", "_ph_", "_placeholder_"]
+            ]
+        ):
             return
 
         # register the placeholder in the database
@@ -85,18 +98,28 @@ class Gates(commands.Cog):
         log.debug("running placeholder loop!")
         scheduled = []
         for document in await cursor.to_list(length=None):
-            setting = await self.settings_db.find_one({"user_id": document["author_id"]})
+            setting = await self.settings_db.find_one(
+                {"user_id": document["author_id"]}
+            )
             setting = setting.get("hours", 1) if setting else 1
 
-            if ((document["message_date"] + datetime.timedelta(hours=setting)) - utc_now).total_seconds() <= (
+            if (
+                (document["message_date"] + datetime.timedelta(hours=setting)) - utc_now
+            ).total_seconds() <= (
                 15 * 60
             ):  # ten minutes
-                await self.placeholder_db.delete_one({"message_id": document["message_id"]})
-                self.bot.loop.create_task(self.run_placeholder_reminder(document, setting))
+                await self.placeholder_db.delete_one(
+                    {"message_id": document["message_id"]}
+                )
+                self.bot.loop.create_task(
+                    self.run_placeholder_reminder(document, setting)
+                )
                 scheduled.append(document)
 
         if scheduled:
-            log.debug(f"[Placeholder] {len(scheduled)} placeholder(s) have been scheduled.")
+            log.debug(
+                f"[Placeholder] {len(scheduled)} placeholder(s) have been scheduled."
+            )
 
     async def run_placeholder_reminder(self, placeholder_data: dict, hours: int = 1):
         """
@@ -114,7 +137,9 @@ class Gates(commands.Cog):
         channel = guild.get_channel(placeholder_data["channel_id"])
 
         try:
-            log.info(f"[Placheholder] running placeholder for {member.display_name} in #{channel.name}")
+            log.info(
+                f"[Placheholder] running placeholder for {member.display_name} in #{channel.name}"
+            )
         except:
             pass
         try:
@@ -123,7 +148,10 @@ class Gates(commands.Cog):
             return None
 
         if message is None or not any(
-            [x in message.content.lower() for x in ["*ph*", "*placeholder*", "_ph_", "_placeholder_"]]
+            [
+                x in message.content.lower()
+                for x in ["*ph*", "*placeholder*", "_ph_", "_placeholder_"]
+            ]
         ):
             # stop if the message is gone or the placeholder is done
             return None
@@ -165,26 +193,27 @@ class Gates(commands.Cog):
             else:
                 db_result = db_result["hours"]
             embed.description = (
-                f"The current setting is to send a reminder after {db_result} hour" f'{"s" if db_result != 1 else ""}.'
+                f"The current setting is to send a reminder after {db_result} hour"
+                f'{"s" if db_result != 1 else ""}.'
             )
             return await ctx.send(embed=embed)
 
         if hours < 1:
             raise commands.BadArgument("`hours` must be greater or equal to one.")
 
-        await self.settings_db.update_one({"user_id": ctx.author.id}, {"$set": {"hours": hours}}, upsert=True)
+        await self.settings_db.update_one(
+            {"user_id": ctx.author.id}, {"$set": {"hours": hours}}, upsert=True
+        )
         embed.title = "Placeholder settings updated!"
         embed.description = (
-            f"The current setting is now to send a reminder after {hours} hour" f'{"s" if hours != 1 else ""}.'
+            f"The current setting is now to send a reminder after {hours} hour"
+            f'{"s" if hours != 1 else ""}.'
         )
 
         return await ctx.send(embed=embed)
 
     @commands.Cog.listener(name="on_message")
     async def activity_listener(self, message):
-        """
-        Listens to a message to see if it's a placeholder in an IC channel.
-        """
 
         # stop if we're not in the right guild
         if not getattr(message.guild, "id", None) == self.server_id:
