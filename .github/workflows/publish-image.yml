@@ -75,7 +75,7 @@ jobs:
           # Use Docker `latest` tag convention
           [ "$VERSION" == "master" ] && VERSION=latestARM
           echo IMAGE_ID=$IMAGE_ID
-          echo "IMAGE_ID=$IMAGE_ID" >> $GITHUB_OUTPUT
+          echo "image=$IMAGE_ID" >> $GITHUB_OUTPUT
           echo VERSION=$VERSION
     
       - name: Build and push
