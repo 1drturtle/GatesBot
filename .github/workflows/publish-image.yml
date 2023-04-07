@@ -75,7 +75,7 @@ jobs:
           # Use Docker `latest` tag convention
           [ "$VERSION" == "master" ] && VERSION=latestARM
           echo "image=$IMAGE_ID" >> $GITHUB_OUTPUT
-          echo GO=$GITHUB_OUTPUT
+          cat $GITHUB_OUTPUT
     
       - name: Build and push
         uses: docker/build-push-action@v4
