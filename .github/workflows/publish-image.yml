@@ -63,6 +63,7 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
 
       - name: Set up variables
+        id: vars
         run: |
           IMAGE_ID=docker.pkg.github.com/${{ github.repository }}/$IMAGE_NAME
           # Change all uppercase to lowercase
@@ -74,15 +75,15 @@ jobs:
           # Use Docker `latest` tag convention
           [ "$VERSION" == "master" ] && VERSION=latestARM
           echo IMAGE_ID=$IMAGE_ID
+          echo "IMAGE_ID=$IMAGE_ID" >> $GITHUB_OUTPUT
           echo VERSION=$VERSION
-          # docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
-          # docker push $IMAGE_ID:$VERSION
     
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
           context: .
           file: Dockerfile.arm
+          push: true
           tags: |
-            $IMAGE_ID:$VERSION
+            ${{ steps.vars.outputs.image }}
           labels: ${{ steps.meta.outputs.labels }}
