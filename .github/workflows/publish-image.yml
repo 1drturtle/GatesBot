@@ -85,5 +85,5 @@ jobs:
           file: Dockerfile.arm
           push: true
           tags: |
-            ${{ steps.vars.outputs.image }}
+            ${{ steps.vars.vars.image }}
           labels: ${{ steps.meta.outputs.labels }}
