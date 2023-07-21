@@ -289,6 +289,10 @@ class Gates(commands.Cog):
 
         log.info(f"[Activity] {count} users given Inactive role...")
 
+    @check_inactive.before_loop
+    async def before_inactive_placeholders(self):
+        await self.bot.wait_until_ready()
+
 
 def setup(bot):
     bot.add_cog(Gates(bot))
