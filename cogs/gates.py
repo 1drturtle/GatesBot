@@ -224,6 +224,13 @@ class Gates(commands.Cog):
         if message.author.bot:
             return
 
+        role = message.guild.get_role(constants.INACTIVE_ROLE_ID)
+
+        if discord.utils.find(lambda r: r.id == role.id, message.author.roles):
+            await message.author.remove_roles(
+                role, reason="User is no longer inactive."
+            )
+
         # store the data
         return await self.active_db.update_one(
             {"_id": message.author.id},
@@ -236,16 +243,12 @@ class Gates(commands.Cog):
     async def inactive(self, ctx):
         q = self.bot.cogs["QueueChannel"]
         s = self.bot.get_guild(q.server_id)
+        role = s.get_role(constants.INACTIVE_ROLE_ID)
 
-        out: List[discord.Member] = []
-        for mem in s.members:
-            if mem.bot:
-                continue
-            if not discord.utils.find(lambda r: r.name == "Active", mem.roles):
-                out.append(mem)
+        inactive_members = filter(lambda m: role in m.roles, s.members)
 
         desc = [f"| {'Member Name':^30} | {'Last Message':^30} |"]
-        for x in out:
+        for x in inactive_members:
             last_msg = await self.active_db.find_one({"_id": x.id})
             last_msg = (
                 f'<t:{pendulum.instance(last_msg.get("last_post")).int_timestamp}:R>'
