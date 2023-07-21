@@ -287,7 +287,7 @@ class Gates(commands.Cog):
                 await member.add_roles(role, reason="User is inactive")
                 count += 1
 
-        log.info(f"[Activity] {count} users given Inactive role...")
+        log.info(f"[Activity] {count} users given Inactive role... Check Complete")
 
     @check_inactive.before_loop
     async def before_inactive_placeholders(self):
