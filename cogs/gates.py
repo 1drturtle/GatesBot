@@ -243,6 +243,7 @@ class Gates(commands.Cog):
     async def inactive(self, ctx):
         q = self.bot.cogs["QueueChannel"]
         s = self.bot.get_guild(q.server_id)
+
         role = s.get_role(constants.INACTIVE_ROLE_ID)
 
         inactive_members = filter(lambda m: role in m.roles, s.members)
