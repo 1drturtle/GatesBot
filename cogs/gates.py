@@ -272,7 +272,7 @@ class Gates(commands.Cog):
             days=30 * 6
         )
 
-        data = await self.active_db.find({"last_post": {"$lte": old}})
+        data = await self.active_db.find({"last_post": {"$lte": old}}).to_list(None)
         user_ids = [x["_id"] for x in data]
 
         # convert into users
