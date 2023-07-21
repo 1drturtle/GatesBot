@@ -29,9 +29,11 @@ class Gates(commands.Cog):
             else constants.DEBUG_SERVER
         )
         self.db_task = self.check_db_placeholders.start()
+        self.inactive_listener = self.check_inactive.start()
 
     def cog_unload(self):
         self.db_task.cancel()
+        self.inactive_listener.cancel()
 
     @commands.Cog.listener(name="on_message")
     async def placeholder_listener(self, message):
@@ -138,7 +140,7 @@ class Gates(commands.Cog):
 
         try:
             log.info(
-                f"[Placheholder] running placeholder for {member.display_name} in #{channel.name}"
+                f"[Placeholder] running placeholder for {member.display_name} in #{channel.name}"
             )
         except:
             pass
@@ -257,6 +259,35 @@ class Gates(commands.Cog):
         embed.description = "\n".join(desc)
 
         await ctx.send(embed=embed)
+
+    # inactive role creator
+    @tasks.loop(hours=24)
+    async def check_inactive(self):
+        # load all activity
+        q = self.bot.cogs["QueueChannel"]
+        s: discord.Guild = self.bot.get_guild(q.server_id)
+
+        # six months ago
+        old = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(
+            days=30 * 6
+        )
+
+        data = await self.active_db.find({"last_post": {"$lte": old}})
+        user_ids = [x["_id"] for x in data]
+
+        # convert into users
+        members = [s.get_member(user_id) for user_id in user_ids]
+        members: List[discord.Member] = list(filter(lambda x: x is not None, members))
+
+        # add Inactive Role
+        role = s.get_role(constants.INACTIVE_ROLE_ID)
+        count = 0
+        for member in members:
+            if not discord.utils.find(lambda r: r.id == role.id, member.roles):
+                await member.add_roles(role, reason="User is inactive")
+                count += 1
+
+        log.info(f"[Activity] {count} users given Inactive role...")
 
 
 def setup(bot):
