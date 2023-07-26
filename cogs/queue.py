@@ -229,6 +229,13 @@ class QueueChannel(commands.Cog):
             {"user_id": message.author.id}, data, upsert=True
         )
 
+        # update `active_users` db to include last sign-up
+        await self.bot.mdb["active_users"].update_one(
+            {"_id": message.author.id},
+            {"$currentDate": {"last_signup": True}},
+            upsert=True,
+        )
+
         # Update Queue
         channel = self.bot.get_channel(self.channel_id)
         await queue.update(self.bot, self.queue_db, channel)
@@ -236,7 +243,7 @@ class QueueChannel(commands.Cog):
     @commands.group(name="gates", invoke_without_command=True)
     @commands.check_any(has_role("Admin"), commands.is_owner())
     async def gates(self, ctx):
-        """Lists all of the current registered Gates."""
+        """Lists all the current registered Gates."""
         gates = await self.gate_list_db.find().to_list(None)
         embed = create_default_embed(ctx)
         out = [
@@ -314,8 +321,6 @@ class QueueChannel(commands.Cog):
         await self.mark_db.update_many(
             {"_id": {"$in": player_ids}}, {"$set": {"marked": False}}
         )
-        # for player in popped.players:
-        #     await self.mark_db.update_one({"_id": player.member.id}, {"$set": {"marked": False}})
 
         await queue.update(self.bot, self.queue_db, serv.get_channel(self.channel_id))
 

@@ -226,10 +226,10 @@ class Gates(commands.Cog):
 
         role = message.guild.get_role(constants.INACTIVE_ROLE_ID)
 
-        if discord.utils.find(lambda r: r.id == role.id, message.author.roles):
-            await message.author.remove_roles(
-                role, reason="User is no longer inactive."
-            )
+        # if discord.utils.find(lambda r: r.id == role.id, message.author.roles):
+        #     await message.author.remove_roles(
+        #         role, reason="User is no longer inactive."
+        #     )
 
         # store the data
         return await self.active_db.update_one(
@@ -271,24 +271,44 @@ class Gates(commands.Cog):
         q = self.bot.cogs["QueueChannel"]
         s: discord.Guild = self.bot.get_guild(q.server_id)
 
+        inactive_role = s.get_role(constants.INACTIVE_ROLE_ID)
+        player_role = discord.utils.find(lambda r: r.name == "Player", s.roles)
+
+        backup_channel = s.get_channel(775723418636124171)
+
         # six months ago
         old = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(
             days=30 * 6
         )
 
-        data = await self.active_db.find({"last_post": {"$lte": old}}).to_list(None)
+        data = await self.active_db.find({"last_signup": {"$lte": old}}).to_list(None)
         user_ids = [x["_id"] for x in data]
 
         # convert into users
         members = [s.get_member(user_id) for user_id in user_ids]
         members: List[discord.Member] = list(filter(lambda x: x is not None, members))
 
-        # add Inactive Role
-        role = s.get_role(constants.INACTIVE_ROLE_ID)
+        # add Inactive Role & Member Role, Remove Player ROle
         count = 0
         for member in members:
-            if not discord.utils.find(lambda r: r.id == role.id, member.roles):
-                await member.add_roles(role, reason="User is inactive")
+            if not discord.utils.find(lambda r: r.id == inactive_role.id, member.roles):
+                # change roles
+                await member.add_roles(inactive_role, reason="User is inactive")
+                await member.remove_roles(player_role, reason="User is inactive")
+                # send the spiel
+                try:
+                    await member.send(
+                        "Hello! You have been inactive for at least 6 months. "
+                        "Please let us know if/when you plan to hop back into Gates "
+                        "(by PMing an Admin or in <#1133560363493904435>). If you do not in the next couple weeks, "
+                        "we will have to remove you form the server to keep our member list cleaner. Once that happens,"
+                        " all you would need to do is shoot one of us admins a message (Lentan or Aeslyn)"
+                        " and we'll get you right back in!"
+                    )
+                except discord.HTTPException | discord.Forbidden:
+                    await backup_channel.send(
+                        f"Could not send inactive spiel to {member.mention} via DM."
+                    )
                 count += 1
 
         log.info(f"[Activity] {count} users given Inactive role... Check Complete")
