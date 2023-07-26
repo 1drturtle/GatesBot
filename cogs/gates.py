@@ -224,7 +224,7 @@ class Gates(commands.Cog):
         if message.author.bot:
             return
 
-        role = message.guild.get_role(constants.INACTIVE_ROLE_ID)
+        # role = message.guild.get_role(constants.INACTIVE_ROLE_ID)
 
         # if discord.utils.find(lambda r: r.id == role.id, message.author.roles):
         #     await message.author.remove_roles(
@@ -273,8 +273,8 @@ class Gates(commands.Cog):
 
         inactive_role = s.get_role(constants.INACTIVE_ROLE_ID)
         player_role = discord.utils.find(lambda r: r.name == "Player", s.roles)
-
-        backup_channel = s.get_channel(775723418636124171)
+        member_role = discord.utils.find(lambda r: r.name == "Member", s.roles)
+        mod_log_channel = s.get_channel(797678485078016000)
 
         # six months ago
         old = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(
@@ -293,7 +293,9 @@ class Gates(commands.Cog):
         for member in members:
             if not discord.utils.find(lambda r: r.id == inactive_role.id, member.roles):
                 # change roles
-                await member.add_roles(inactive_role, reason="User is inactive")
+                await member.add_roles(
+                    inactive_role, member_role, reason="User is inactive"
+                )
                 await member.remove_roles(player_role, reason="User is inactive")
                 # send the spiel
                 try:
@@ -306,8 +308,12 @@ class Gates(commands.Cog):
                         " and we'll get you right back in!"
                     )
                 except discord.HTTPException | discord.Forbidden:
-                    await backup_channel.send(
+                    await mod_log_channel.send(
                         f"Could not send inactive spiel to {member.mention} via DM."
+                    )
+                else:
+                    await mod_log_channel.send(
+                        f"Inactive spiel sent to {member.mention} via DM."
                     )
                 count += 1
 
