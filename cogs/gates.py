@@ -241,6 +241,7 @@ class Gates(commands.Cog):
     @commands.command(name="inactive")
     @commands.check_any(commands.is_owner(), has_role("Admin"))
     async def inactive(self, ctx):
+        """Shows inactive users and their last Queue sign-up."""
         q = self.bot.cogs["QueueChannel"]
         s = self.bot.get_guild(q.server_id)
 
@@ -250,13 +251,13 @@ class Gates(commands.Cog):
 
         desc = [f"| {'Member Name':^30} | {'Last Message':^30} |"]
         for x in inactive_members:
-            last_msg = await self.active_db.find_one({"_id": x.id})
-            last_msg = (
-                f'<t:{pendulum.instance(last_msg.get("last_post")).int_timestamp}:R>'
-                if last_msg and last_msg.get("last_post")
+            data = await self.active_db.find_one({"_id": x.id})
+            data = (
+                f'<t:{pendulum.instance(data.get("last_signup")).int_timestamp}:R>'
+                if data and data.get("last_signup")
                 else "Unknown"
             )
-            desc.append(f"| {x.display_name} | {last_msg} |")
+            desc.append(f"| {x.display_name} | {data} |")
 
         embed = create_default_embed(ctx)
         embed.title = "Inactive Users"
