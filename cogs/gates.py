@@ -249,7 +249,7 @@ class Gates(commands.Cog):
 
         inactive_members = filter(lambda m: role in m.roles, s.members)
 
-        desc = [f"| {'Member Name':^30} | {'Last Message':^30} |"]
+        desc = [f"| {'Member Name':^30} | {'Last Sign-Up':^30} |"]
         for x in inactive_members:
             data = await self.active_db.find_one({"_id": x.id})
             data = (
