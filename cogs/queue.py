@@ -991,9 +991,10 @@ class QueueChannel(commands.Cog):
         serv = self.bot.get_guild(self.server_id)
         await queue.update(self.bot, self.queue_db, serv.get_channel(self.channel_id))
 
-        announce = serv.get_channel(self.announcement_channel_id)
+        announce: disnake.TextChannel = serv.get_channel(self.announcement_channel_id)
         await announce.send(
-            f"Players, <#{self.channel_id}> has been unlocked! Sign up to join the queue!"
+            f"<@778973153962885161>, <#{self.channel_id}> has been unlocked! Sign up to join the queue!",
+            allowed_mentions=disnake.AllowedMentions(roles=True),
         )
 
     @commands.command(name="empty")
