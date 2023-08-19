@@ -993,7 +993,7 @@ class QueueChannel(commands.Cog):
 
         announce: disnake.TextChannel = serv.get_channel(self.announcement_channel_id)
         await announce.send(
-            f"<@778973153962885161>, <#{self.channel_id}> has been unlocked! Sign up to join the queue!",
+            f"<@&778973153962885161>, <#{self.channel_id}> has been unlocked! Sign up to join the queue!",
             allowed_mentions=disnake.AllowedMentions(roles=True),
         )
 
