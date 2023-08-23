@@ -4,6 +4,7 @@ from collections import namedtuple
 from typing import List
 
 import discord
+import disnake
 import pendulum
 from discord.ext import commands
 from discord.ext import tasks
@@ -135,7 +136,7 @@ class Gates(commands.Cog):
 
         # get data from bot
         guild = self.bot.get_guild(placeholder_data["guild_id"])
-        member = guild.get_member(placeholder_data["author_id"])
+        member: disnake.Member = guild.get_member(placeholder_data["author_id"])
         channel = guild.get_channel(placeholder_data["channel_id"])
 
         try:
@@ -238,7 +239,7 @@ class Gates(commands.Cog):
             upsert=True,
         )
 
-    @commands.command(name="inactive")
+    @commands.group(name="inactive", invoke_without_command=True)
     @commands.check_any(commands.is_owner(), has_role("Admin"))
     async def inactive(self, ctx):
         """Shows inactive users and their last Queue sign-up."""
@@ -264,6 +265,50 @@ class Gates(commands.Cog):
         embed.description = "\n".join(desc)
 
         await ctx.send(embed=embed)
+
+    @inactive.command(name="final")
+    @has_role("Admin")
+    async def inactive_final(self, ctx):
+        """Sends the final Inactive message to all members w/ Inactive Role. Admin only."""
+
+        # send info
+        await ctx.invoke(self.inactive, ctx)
+
+        # get members
+        q = self.bot.cogs["QueueChannel"]
+        s = self.bot.get_guild(q.server_id)
+        role = s.get_role(constants.INACTIVE_ROLE_ID)
+
+        inactive_members: List[disnake.Member] = list(
+            filter(lambda m: role in m.roles, s.members)
+        )
+
+        final_msg = """Hi!\n\nYou've recently been pinged as "Inactive" since you have not signed up for a gate in at least 6 months.\n\nAs much as we'd love for you to stick around, we do have to enforce our server policies.\n\nIf you're ready to get back to playing, we'd appreciate it if you could re-read our rules for a refresher. Once done with that, instructions on how regain Player access are pinned in inactive-players!\n\nIf you're not ready, that's totally fine too! Unfortunately, that does mean we will have to remove you from the server. No worries though, if you haven't already, please add Aeslyn or Lentan as friends and we'd be happy to invite you back.\n\nIf we don't hear from you in 3 days, we will assume you're not interested anymore and we'll be cleaning up our inactive players."""
+
+        # send FINAL msg to inactive users
+        count = 0
+        success, fail = [], []
+
+        for member in inactive_members:
+            try:
+                await member.send(final_msg)
+            except discord.HTTPException | discord.Forbidden:
+                fail.append(member)
+            else:
+                success.append(member)
+            count += 1
+
+        e = create_default_embed(ctx)
+        e.title = "Final Inactive Spiel Report"
+        if success:
+            e.add_field("Success", value="\n".join(m.mention for m in success))
+        if fail:
+            e.add_field(
+                "Message Failed to Send", value="\n".join(m.mention for m in fail)
+            )
+        e.description = f"Report for {count} inactive users."
+
+        await ctx.send(embed=e)
 
     # inactive role creator
     @tasks.loop(hours=24)
