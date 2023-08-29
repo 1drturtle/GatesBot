@@ -272,7 +272,7 @@ class Gates(commands.Cog):
         """Sends the final Inactive message to all members w/ Inactive Role. Admin only."""
 
         # send info
-        await ctx.invoke(self.inactive, ctx)
+        await ctx.invoke(self.inactive)
 
         # get members
         q = self.bot.cogs["QueueChannel"]
