@@ -365,6 +365,26 @@ class Gates(commands.Cog):
 
         log.info(f"[Activity] {count} users given Inactive role... Check Complete")
 
+    @commands.command(name="removeemojis")
+    @commands.check_any(commands.is_owner(), has_role("Admin"))
+    async def remove_old_emojis(self, ctx, channel: disnake.TextChannel):
+
+        removed_reactions = 0
+        removed_messages = 0
+
+        async with ctx.channel.typing():
+            async for msg in channel.history():
+                removed_messages += 1
+                for reaction in msg.reactions:
+                    async for user in reaction.users():
+                        if not ctx.guild.get_member(user.id):
+                            removed_reactions += 1
+                            await reaction.remove(user)
+
+        await ctx.send(
+            f"Removed {removed_reactions} reactions from {removed_messages} messages in {channel.jump_url}"
+        )
+
     @check_inactive.before_loop
     async def before_inactive_placeholders(self):
         await self.bot.wait_until_ready()
