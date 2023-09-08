@@ -997,6 +997,41 @@ class QueueChannel(commands.Cog):
             allowed_mentions=disnake.AllowedMentions(roles=True),
         )
 
+    @commands.command(name="fixq")
+    @commands.check_any(commands.is_owner(), has_role("Assistant"))
+    async def manually_unlock_queue(self, ctx):
+        """Unlocks the queue channel. Admin only."""
+        # get the channel
+        queue_channel: discord.TextChannel = ctx.guild.get_channel(self.channel_id)
+
+        if queue_channel is None:
+            return await ctx.author.send(
+                "Could not find queue channel, aborting channel unlock."
+            )
+        player_role: discord.Role = discord.utils.find(
+            lambda r: r.name.lower() == "player", ctx.guild.roles
+        )
+        if player_role is None:
+            return await ctx.author.send(
+                "Could not find Player role, aborting channel unlock."
+            )
+
+        log.info(f"Queue has been forcefully unlocked by {ctx.author}")
+
+        # new perms
+        perms = queue_channel.overwrites
+        player_perms = perms.get(player_role)
+        player_perms.update(send_messages=True)
+        perms.update({player_role: player_perms})
+
+        # unlock the channel
+        await queue_channel.edit(
+            reason=f"Channel manual unlock. Requested by {ctx.author.name}#{ctx.author.discriminator}.",
+            overwrites=perms,
+        )
+
+        await ctx.send("Manually unlocked...", delete_after=3)
+
     @commands.command(name="empty")
     @commands.check_any(commands.is_owner(), has_role("Admin"))
     async def empty_queue(self, ctx):
