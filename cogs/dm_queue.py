@@ -267,7 +267,7 @@ class DMQueue(commands.Cog):
             gate = Group.from_dict(self.bot.get_guild(self.server_id), raw_data)
             gates.append(GateGroup(gate=gate, name=name, claimed=claimed))
 
-        gates = gates[-1::]
+        gates = gates[:10]
         gates.reverse()
         return gates
 
