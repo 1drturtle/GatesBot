@@ -299,7 +299,7 @@ class DMQueue(commands.Cog):
 
         gates = sorted(lambda x: x.claimed, gates)
 
-        gates = gates[-1::]
+        gates = gates[:10]
         gates.reverse()
         return gates
 
