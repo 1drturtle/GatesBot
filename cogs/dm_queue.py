@@ -297,10 +297,10 @@ class DMQueue(commands.Cog):
             gate = Group.from_dict(self.bot.get_guild(self.server_id), raw_data)
             gates.append(GateGroup(gate=gate, name=name, claimed=claimed))
 
-        gates = sorted(gates, key=lambda x: x.claimed)
+        gates = sorted(gates, key=lambda x: x.claimed, reverse=True)
 
         gates = gates[:10]
-        gates.reverse()
+        # gates.reverse()
         return gates
 
     @dm.group(name="stats", invoke_without_command=True)
