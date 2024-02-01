@@ -25,14 +25,20 @@ class DMQueue(commands.Cog):
         self.bot = bot
 
         self.queue_channel_id = (
-            constants.DM_QUEUE_CHANNEL_DEBUG if self.bot.environment == "testing" else constants.DM_QUEUE_CHANNEL
+            constants.DM_QUEUE_CHANNEL_DEBUG
+            if self.bot.environment == "testing"
+            else constants.DM_QUEUE_CHANNEL
         )
         self.assign_id = (
             constants.DM_QUEUE_ASSIGNMENT_CHANNEL_DEBUG
             if self.bot.environment == "testing"
             else constants.DM_QUEUE_ASSIGNMENT_CHANNEL
         )
-        self.server_id = constants.GATES_SERVER if self.bot.environment != "testing" else constants.DEBUG_SERVER
+        self.server_id = (
+            constants.GATES_SERVER
+            if self.bot.environment != "testing"
+            else constants.DEBUG_SERVER
+        )
 
         self.db = self.bot.mdb["dm_queue"]
         self.dm_db = self.bot.mdb["dm_analytics"]
@@ -58,12 +64,18 @@ class DMQueue(commands.Cog):
         content = discord.utils.remove_markdown(msg.content.lower())
         rank_content = content.replace("ready: ", "").strip()
 
-        content = {"$set": {"ranks": rank_content, "msg": msg.id}, "$currentDate": {"readyOn": True}}
+        content = {
+            "$set": {"ranks": rank_content, "msg": msg.id},
+            "$currentDate": {"readyOn": True},
+        }
 
         await self.db.update_one({"_id": msg.author.id}, content, upsert=True)
         await self.dm_db.update_one(
             {"_id": msg.author.id},
-            {"$inc": {"dm_queue.signups": 1}, "$currentDate": {"dm_queue.last_signup": True}},
+            {
+                "$inc": {"dm_queue.signups": 1},
+                "$currentDate": {"dm_queue.last_signup": True},
+            },
             upsert=True,
         )
 
@@ -139,14 +151,18 @@ class DMQueue(commands.Cog):
         if len(dm_data) == 0:
             return await ctx.send("No DMs currently in DM queue.")
         if queue_num > (size := len(dm_data)):
-            return await ctx.send(f"Invalid DM Queue number. Must be less than or equal to {size}")
+            return await ctx.send(
+                f"Invalid DM Queue number. Must be less than or equal to {size}"
+            )
         elif queue_num < 1:
             return await ctx.send("Invalid DM Queue number. Must be at least 1.")
 
         dm = dm_data[(queue_num - 1)]
         who = ctx.guild.get_member(dm.get("_id"))
 
-        gates_data: Queue = await queue_from_guild(self.bot.mdb["player_queue"], ctx.guild)
+        gates_data: Queue = await queue_from_guild(
+            self.bot.mdb["player_queue"], ctx.guild
+        )
         check = length_check(len(gates_data.groups), group_num)
         if check is not None:
             return await ctx.send(check)
@@ -174,7 +190,11 @@ class DMQueue(commands.Cog):
         embed2.title = f"Information for Group #{group_num}"
         embed2.description = group.player_levels_str
         await ch.send(embed=embed2)
-        await ch.send(f"{who.mention}", embed=embed, allowed_mentions=discord.AllowedMentions(users=True))
+        await ch.send(
+            f"{who.mention}",
+            embed=embed,
+            allowed_mentions=discord.AllowedMentions(users=True),
+        )
 
         analytics_data = {
             "summoner": ctx.author.id,
@@ -184,12 +204,16 @@ class DMQueue(commands.Cog):
             "summonDate": datetime.datetime.utcnow(),
         }
         await self.assign_data_db.insert_one(analytics_data)
-        await self.dm_db.update_one({"_id": who.id}, {"$inc": {"dm_queue.assignments": 1}}, upsert=True)
+        await self.dm_db.update_one(
+            {"_id": who.id}, {"$inc": {"dm_queue.assignments": 1}}, upsert=True
+        )
 
         await self.db.delete_one({"_id": who.id})
         await self.update_queue()
 
-        log.info(f"[DM Queue] {ctx.author} assigned Gate #{group_num} to {who} (DM #{queue_num})")
+        log.info(
+            f"[DM Queue] {ctx.author} assigned Gate #{group_num} to {who} (DM #{queue_num})"
+        )
 
     @dm.command(name="update")
     @has_role("DM")
@@ -201,7 +225,9 @@ class DMQueue(commands.Cog):
         embed.add_field(name="New Message", value=rank_content)
 
         try:
-            await self.db.update_one({"_id": ctx.author.id}, {"$set": {"ranks": rank_content}})
+            await self.db.update_one(
+                {"_id": ctx.author.id}, {"$set": {"ranks": rank_content}}
+            )
         except:
             pass
         else:
@@ -223,7 +249,9 @@ class DMQueue(commands.Cog):
         """Leave the DM queue."""
         embed = create_default_embed(ctx)
         embed.title = "DM Queue Left."
-        embed.description = "If you were previously in the DM queue, you have been removed from it."
+        embed.description = (
+            "If you were previously in the DM queue, you have been removed from it."
+        )
 
         try:
             await self.db.delete_one({"_id": ctx.author.id})
@@ -240,7 +268,9 @@ class DMQueue(commands.Cog):
         """Remove a member from the DM queue."""
         embed = create_default_embed(ctx)
         embed.title = "Member Removed from Queue."
-        embed.description = f"{to_remove.mention} has been removed from queue, if they were in it."
+        embed.description = (
+            f"{to_remove.mention} has been removed from queue, if they were in it."
+        )
 
         try:
             await self.db.delete_one({"_id": to_remove.id})
@@ -266,6 +296,8 @@ class DMQueue(commands.Cog):
             raw_data["position"] = None
             gate = Group.from_dict(self.bot.get_guild(self.server_id), raw_data)
             gates.append(GateGroup(gate=gate, name=name, claimed=claimed))
+
+        gates = sorted(lambda x: x.claimed, gates)
 
         gates = gates[-1::]
         gates.reverse()
@@ -308,7 +340,8 @@ class DMQueue(commands.Cog):
         recent_gates = await self.load_recent_gates(who, existing_data=dm_data)
 
         gate_string = "\n".join(
-            f"{i+1}. Rank {x.gate.tier}, {len(x.gate.players)} players" for i, x in enumerate(recent_gates)
+            f"{i+1}. Rank {x.gate.tier}, {len(x.gate.players)} players"
+            for i, x in enumerate(recent_gates)
         )
         descriptor = (
             f"For more info, run `{ctx.prefix}dm stats gate # [user mention]`, "
@@ -316,7 +349,9 @@ class DMQueue(commands.Cog):
         )
 
         embed.add_field(
-            name="Recent Gates (Most recent first)", value="```\n" + gate_string + "\n```\n" + descriptor, inline=False
+            name="Recent Gates (Most recent first)",
+            value="```\n" + gate_string + "\n```\n" + descriptor,
+            inline=False,
         )
 
         await ctx.send(embed=embed)
@@ -340,7 +375,9 @@ class DMQueue(commands.Cog):
         try:
             gate = gates[gate_num - 1]
         except IndexError:
-            raise commands.BadArgument(f"Gate number must exist. See `{ctx.prefix}dm stats` for gate numbers.")
+            raise commands.BadArgument(
+                f"Gate number must exist. See `{ctx.prefix}dm stats` for gate numbers."
+            )
 
         claimed = int(pendulum.instance(gate.claimed).timestamp())
         embed.add_field(
@@ -404,10 +441,16 @@ class DMQueue(commands.Cog):
             raise commands.BadArgument("Could not find reinforcement data")
 
         pag = commands.Paginator()
-        pag.add_line(f"Reinforcement Data Data for {who.display_name}" if who else "Reinforcement Data")
+        pag.add_line(
+            f"Reinforcement Data Data for {who.display_name}"
+            if who
+            else "Reinforcement Data"
+        )
         pag.add_line("dm id, gate claimed date (utc), gate tier")
         for r in data:
-            pag.add_line(f"{r['dm_id']},{r['gate_info']['claimed_date']},{r['gate_info']['tier']}")
+            pag.add_line(
+                f"{r['dm_id']},{r['gate_info']['claimed_date']},{r['gate_info']['tier']}"
+            )
 
         for page in pag.pages:
             await ctx.send(page)
@@ -424,12 +467,19 @@ class DMQueue(commands.Cog):
         for item in data:
             member = ctx.guild.get_member(item["_id"])
             try:
-                timestamp = int((item["dm_claims"].get("last_claim") - datetime.datetime(1970, 1, 1)).total_seconds())
+                timestamp = int(
+                    (
+                        item["dm_claims"].get("last_claim")
+                        - datetime.datetime(1970, 1, 1)
+                    ).total_seconds()
+                )
             except (KeyError, IndexError):
                 continue
             molded_data.append((member, timestamp))
         molded_data = sorted(molded_data, key=lambda i: i[1])
-        embed.description = "\n".join([f"{i[0].mention}: <t:{i[1]}:R>" for i in molded_data])
+        embed.description = "\n".join(
+            [f"{i[0].mention}: <t:{i[1]}:R>" for i in molded_data]
+        )
 
         await ctx.send(embed=embed)
 
