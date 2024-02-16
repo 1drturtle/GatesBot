@@ -873,7 +873,7 @@ class QueueChannel(commands.Cog):
         return await ctx.send(embed=embed)
 
     # Owner/Admin Commands
-    @commands.command(name="lock")
+    @commands.group(name="lock", invoke_without_command=True)
     @commands.check_any(commands.is_owner(), has_role("Assistant"))
     async def lock_queue(self, ctx, *, reason: str = None):
         """Locks the queue channel. Admin only."""
@@ -923,6 +923,31 @@ class QueueChannel(commands.Cog):
 
         serv = self.bot.get_guild(self.server_id)
         await queue.update(self.bot, self.queue_db, serv.get_channel(self.channel_id))
+
+    @lock_queue.command(name="group")
+    @commands.check_any(commands.is_owner(), has_role("Assistant"))
+    async def lock_group(self, ctx, group_num: int):
+        """Locks or unlocks a group, depending on the current status of the group."""
+        queue = await queue_from_guild(self.queue_db, ctx.guild)
+
+        length = len(queue.groups)
+        check = length_check(length, group_num)
+        if check is not None:
+            return await ctx.send(check)
+
+        serv = self.bot.get_guild(self.server_id)
+
+        queue.groups[group_num - 1].locked = (
+            st := not queue.groups[group_num - 1].locked
+        )
+
+        await queue.update(self.bot, self.queue_db, serv.get_channel(self.channel_id))
+        await ctx.send(
+            f"Group #{group_num} {'locked' if st else 'unlocked'}.", delete_after=3
+        )
+        log.info(
+            f"[Queue] Group #{group_num} {'locked' if st else 'unlocked'} by {ctx.author}."
+        )
 
     # Owner/Admin Commands
     @commands.command(name="unlock")

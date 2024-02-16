@@ -40,7 +40,11 @@ class Player:
         return cls(member, data["total_level"], data["classes"])
 
     def to_dict(self):
-        return {"total_level": self.total_level, "classes": self.levels, "member_id": self.member.id}
+        return {
+            "total_level": self.total_level,
+            "classes": self.levels,
+            "member_id": self.member.id,
+        }
 
     @property
     def total_level(self):
@@ -70,16 +74,22 @@ class Player:
 
 
 class Group:
-    def __init__(self, players: list, tier: int, position: int = None):
+    def __init__(
+        self, players: list, tier: int, position: int = None, locked: bool = False
+    ):
         self.players = players
         self.tier = tier
         self.position = position
+        self.locked = locked
 
     def to_dict(self) -> dict:
         return {
-            "players": [player.to_dict() for player in self.players if player is not None],
+            "players": [
+                player.to_dict() for player in self.players if player is not None
+            ],
             "tier": self.tier,
             "position": self.position,
+            "locked": self.locked,
         }
 
     @classmethod
@@ -95,7 +105,8 @@ class Group:
                 players.append(player)
         tier = data["tier"]
         pos = data["position"]
-        return cls(players=players, tier=tier, position=pos)
+        locked = data.get("locked", None) or False
+        return cls(players=players, tier=tier, position=pos, locked=locked)
 
     @property
     def player_levels(self):
@@ -112,10 +123,15 @@ class Group:
                 [
                     mark
                     for role_id, mark in ROLE_MARKERS.items()
-                    if discord.utils.find(lambda r: r.id == role_id, player.member.roles)
+                    if discord.utils.find(
+                        lambda r: r.id == role_id, player.member.roles
+                    )
                 ]
             )
-            out += f"- {player.member.display_name}: {player.level_str}" f"{f' [{markers}]' if markers else ''}\n"
+            out += (
+                f"- {player.member.display_name}: {player.level_str}"
+                f"{f' [{markers}]' if markers else ''}\n"
+            )
         out += "```"
         return out
 
@@ -155,7 +171,9 @@ class Queue:
     @classmethod
     def from_dict(cls, guild: discord.Guild, data: dict):
         groups = [Group.from_dict(guild, x) for x in data["groups"]]
-        return cls(groups=groups, server_id=data["server_id"], channel_id=data["channel_id"])
+        return cls(
+            groups=groups, server_id=data["server_id"], channel_id=data["channel_id"]
+        )
 
     def to_dict(self):
         return {
@@ -173,8 +191,9 @@ class Queue:
         embed.title = "Gate Sign-Up List"
 
         for index, group in enumerate(self.groups):
+            locked = " 🔒" if group.locked else ""
             embed.add_field(
-                name=f"{index + 1}. Rank {group.tier}",
+                name=f"{index + 1}. Rank {group.tier}{locked}",
                 value=await group.generate_field(bot),
                 inline=False,
             )
@@ -207,7 +226,11 @@ class Queue:
 
         # DB Commit
         data = self.to_dict()
-        await db.update_one({"guild_id": self.server_id, "channel_id": self.channel_id}, {"$set": data}, upsert=True)
+        await db.update_one(
+            {"guild_id": self.server_id, "channel_id": self.channel_id},
+            {"$set": data},
+            upsert=True,
+        )
 
         # Make a new embed
         embed = await self.generate_embed(bot)
@@ -225,7 +248,7 @@ class Queue:
         out = None
         for index, group in enumerate(self.groups):
             if group.tier == player.tier:
-                if len(group.players) >= group_size:
+                if len(group.players) >= group_size or group.locked:
                     continue
                 out = index
                 break
