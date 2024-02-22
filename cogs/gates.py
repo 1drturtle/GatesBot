@@ -310,6 +310,33 @@ class Gates(commands.Cog):
 
         await ctx.send(embed=e)
 
+    @inactive.command(name="dm")
+    @commands.check_any(has_role("Admin"), commands.is_owner())
+    async def inactive_dms(self, ctx):
+        out = ""
+        data = (
+            await self.bot.mdb["dm_analytics"]
+            .find()
+            .sort("dm_claims.last_claim")
+            .to_list(None)
+        )
+        q = self.bot.cogs["QueueChannel"]
+        serv = self.bot.get_guild(q.server_id)
+        for item in data:
+            u_id = item["_id"]
+            mem = serv.get_member(u_id)
+
+            if mem is None or not any(x for x in mem.roles if x.name == "DM"):
+                continue
+            last_claim = item.get("dm_claims").get("last_claim").timestamp()
+            out += f"{mem.mention}| <t:{int(last_claim)}:R>\n"
+
+        embed = create_default_embed(ctx)
+        embed.title = "Inactive DMs"
+        embed.description = "\n".join(out)
+
+        await ctx.send(embed=embed)
+
     # inactive role creator
     @tasks.loop(hours=24)
     async def check_inactive(self):
