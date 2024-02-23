@@ -333,7 +333,7 @@ class Gates(commands.Cog):
 
         embed = create_default_embed(ctx)
         embed.title = "Inactive DMs"
-        embed.description = "\n".join(out)
+        embed.description = out
 
         await ctx.send(embed=embed)
 
