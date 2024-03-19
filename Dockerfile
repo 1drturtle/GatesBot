@@ -1,4 +1,6 @@
-FROM python:3.11-alpine
+FROM python:3.11-slim
+
+RUN apt update && apt install --no-install-recommends procinfo
 
 WORKDIR /gatesbot
 
