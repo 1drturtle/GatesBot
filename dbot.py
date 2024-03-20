@@ -16,7 +16,7 @@ COGS = {
     "cogs.util",
     "jishaku",
     "cogs.queue",
-    "cogs.gates",
+    "cogs.placeholders",
     "cogs.schedule",
     "cogs.errors",
     "cogs.admin",

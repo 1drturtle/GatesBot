@@ -18,7 +18,7 @@ PLACEHOLDER_POLL_TIME = 300
 log = logging.getLogger(__name__)
 
 
-class Gates(commands.Cog):
+class Placeholders(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.placeholder_db = bot.mdb["placeholder_events"]
@@ -29,7 +29,7 @@ class Gates(commands.Cog):
             if self.bot.environment != "testing"
             else constants.DEBUG_SERVER
         )
-        self.db_task = self.check_db_placeholders.start()
+        self.db_task = self.run_placeholders.start()
         self.inactive_listener = self.check_inactive.start()
 
     def cog_unload(self):
@@ -90,82 +90,55 @@ class Gates(commands.Cog):
 
         await self.placeholder_db.insert_one(data)
 
-    @tasks.loop(seconds=300)
-    async def check_db_placeholders(self):
-        """
-        Goes through each db document to see if it's time to schedule an event for reminder. Happens
-        when the message date + 1 hour is within 10 minutes of now.
-        """
+    @tasks.loop(minutes=2)
+    async def run_placeholders(self):
         cursor = self.placeholder_db.find().sort("message_date")
-        utc_now = datetime.datetime.utcnow()
+        utc_now = datetime.datetime.now(datetime.timezone.utc)
         log.debug("running placeholder loop!")
-        scheduled = []
         for document in await cursor.to_list(length=None):
             setting = await self.settings_db.find_one(
                 {"user_id": document["author_id"]}
             )
             setting = setting.get("hours", 1) if setting else 1
 
-            if (
-                (document["message_date"] + datetime.timedelta(hours=setting)) - utc_now
-            ).total_seconds() <= (
-                15 * 60
-            ):  # ten minutes
+            if (document["message_date"] + datetime.timedelta(hours=setting)) < utc_now:
                 await self.placeholder_db.delete_one(
                     {"message_id": document["message_id"]}
                 )
-                self.bot.loop.create_task(
-                    self.run_placeholder_reminder(document, setting)
-                )
-                scheduled.append(document)
-
-        if scheduled:
-            log.debug(
-                f"[Placeholder] {len(scheduled)} placeholder(s) have been scheduled."
-            )
+                await self.run_placeholder_reminder(document, setting)
 
     async def run_placeholder_reminder(self, placeholder_data: dict, hours: int = 1):
-        """
-        Takes the data from the databases and waits until message date + 1 hour, and then sends them a DM
-        :param dict placeholder_data: Data to run the reminder, fetched from the database.
-        :param int hours: Number of hours to wait after message before a PM is sent.
-        """
-        # wait until an hour has passed from the original message
-        future = placeholder_data["message_date"] + datetime.timedelta(hours=hours)
-        await discord.utils.sleep_until(future)
-
         # get data from bot
         guild = self.bot.get_guild(placeholder_data["guild_id"])
         member: disnake.Member = guild.get_member(placeholder_data["author_id"])
         channel = guild.get_channel(placeholder_data["channel_id"])
 
-        try:
-            log.info(
-                f"[Placeholder] running placeholder for {member.display_name} in #{channel.name}"
-            )
-        except:
-            pass
+        if not channel or not member:
+            return None
+
+        log.info(
+            f"[Placeholder] running placeholder for {member.display_name} in #{channel.name}"
+        )
+
         try:
             message = await channel.fetch_message(placeholder_data["message_id"])
         except discord.NotFound:
             return None
 
+        # stop if the message is gone or the placeholder is done
         if message is None or not any(
             [
                 x in message.content.lower()
                 for x in ["*ph*", "*placeholder*", "_ph_", "_placeholder_"]
             ]
         ):
-            # stop if the message is gone or the placeholder is done
             return None
 
         ContextProxy = namedtuple("ContextProxy", ["message", "bot", "author"])
         ctx = ContextProxy(message, self.bot, member)
 
         try:
-            hour_str = f"{hours} hours"
-            if hours == 1:
-                hour_str = "1 hour"
+            hour_str = f"{hours} hour{'s' if hours != 1 else ''}"
             embed = create_default_embed(ctx, title="Placeholder Reminder!")
             embed.description = (
                 f"You sent a placeholder in {channel.mention} that hasn't been updated in {hour_str}!\n"
@@ -214,30 +187,6 @@ class Gates(commands.Cog):
         )
 
         return await ctx.send(embed=embed)
-
-    @commands.Cog.listener(name="on_message")
-    async def activity_listener(self, message):
-
-        # stop if we're not in the right guild
-        if not getattr(message.guild, "id", None) == self.server_id:
-            return
-
-        if message.author.bot:
-            return
-
-        # role = message.guild.get_role(constants.INACTIVE_ROLE_ID)
-
-        # if discord.utils.find(lambda r: r.id == role.id, message.author.roles):
-        #     await message.author.remove_roles(
-        #         role, reason="User is no longer inactive."
-        #     )
-
-        # store the data
-        return await self.active_db.update_one(
-            {"_id": message.author.id},
-            {"$set": {"_id": message.author.id}, "$currentDate": {"last_post": True}},
-            upsert=True,
-        )
 
     @commands.group(name="inactive", invoke_without_command=True)
     @commands.check_any(commands.is_owner(), has_role("Admin"))
@@ -361,7 +310,7 @@ class Gates(commands.Cog):
         members = [s.get_member(user_id) for user_id in user_ids]
         members: List[discord.Member] = list(filter(lambda x: x is not None, members))
 
-        # add Inactive Role & Member Role, Remove Player ROle
+        # add Inactive Role & Member Role, Remove Player Role
         count = 0
         for member in members:
             if not discord.utils.find(lambda r: r.id == inactive_role.id, member.roles):
@@ -418,4 +367,4 @@ class Gates(commands.Cog):
 
 
 def setup(bot):
-    bot.add_cog(Gates(bot))
+    bot.add_cog(Placeholders(bot))
