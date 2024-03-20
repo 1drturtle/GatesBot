@@ -114,7 +114,8 @@ class CommandErrorHandler(commands.Cog):
                 pass
 
         else:
-            await self.bot.get_channel(self.error_channel_id).send(error)
+            raise error
+            # await self.bot.get_channel(self.error_channel_id).send(error)
 
 
 def setup(bot):

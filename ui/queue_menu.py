@@ -71,7 +71,7 @@ class PlayerQueueUI(disnake.ui.View):
         emoji="⚙",
         style=disnake.ButtonStyle.grey,
         custom_id="gatesbot_playerqueue_manage",
-        disabled=True,
+        disabled=False,
     )
     async def manage_button(self, button, inter: disnake.MessageInteraction):
         queue = await self.queue_from_guild(self.queue_db, inter.guild)

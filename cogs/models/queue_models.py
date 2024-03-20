@@ -244,18 +244,22 @@ class Queue:
         self.groups = [group for group in self.groups if len(group.players) != 0]
 
         # DB Commit
-        data = self.to_dict()
-        await db.update_one(
-            {"guild_id": self.server_id, "channel_id": self.channel_id},
-            {"$set": data},
-            upsert=True,
-        )
+        await self.db_save(db)
         # Create a View
         view = PlayerQueueUI(bot, self.__class__)
 
         # Make a new embed
         embed = await self.generate_embed(bot)
         return await channel.send(embed=embed, view=view)
+
+    async def db_save(self, db):
+        # DB Commit
+        data = self.to_dict()
+        await db.update_one(
+            {"guild_id": self.server_id, "channel_id": self.channel_id},
+            {"$set": data},
+            upsert=True,
+        )
 
     def in_queue(self, member_id) -> tuple:
         index = None

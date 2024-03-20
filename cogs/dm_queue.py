@@ -168,6 +168,7 @@ class DMQueue(commands.Cog):
             return await ctx.send(check)
 
         group = gates_data.groups[group_num - 1]
+        gates_data.groups[group_num - 1].assigned = who.id
         msg = (
             f"Group {group_num} is yours, see above for details."
             f" Don't forget to submit your encounter in <#798247432743551067> once ready and claim once approved!"
