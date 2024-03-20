@@ -5,6 +5,8 @@ from datetime import timedelta
 import discord
 import sentry_sdk
 from discord.ext import commands
+import utils.constants as constants
+
 
 log = logging.getLogger(__name__)
 
@@ -12,27 +14,7 @@ log = logging.getLogger(__name__)
 class CommandErrorHandler(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
-    def log_error(self, error=None, context=None):
-        log.error("Ignoring exception in command {}:".format(context.command if context else "unknown"))
-        log.error("".join(traceback.format_exception(type(error), error, error.__traceback__)))
-
-        # https://github.com/avrae/avrae/blob/master/dbot.py#L114
-        if self.bot.sentry_url is None:
-            log.warning("SENTRY Error Handling is not setup.")
-            return
-
-        with sentry_sdk.push_scope() as scope:
-            scope.user = {"id": context.author.id, "username": str(context.author)}
-            scope.set_tag("message.content", context.message.content)
-            scope.set_tag("is_private_message", context.guild is None)
-            scope.set_tag("channel.id", context.channel.id)
-            scope.set_tag("channel.name", str(context.channel))
-            if context.guild is not None:
-                scope.set_tag("guild.id", context.guild.id)
-                scope.set_tag("guild.name", str(context.guild))
-            sentry_sdk.capture_exception(error)
-            log.info("Error logged to SENTRY")
+        self.error_channel_id = constants.ERROR_CHANNEL
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
@@ -47,7 +29,9 @@ class CommandErrorHandler(commands.Cog):
         """
 
         # This prevents any commands with local handlers being handled here in on_command_error.
-        if hasattr(ctx.command, "on_error") and getattr(ctx.command, "no_handle", False):
+        if hasattr(ctx.command, "on_error") and getattr(
+            ctx.command, "no_handle", False
+        ):
             return
 
         # This prevents any cogs with an overwritten cog_command_error being handled here.
@@ -87,7 +71,9 @@ class CommandErrorHandler(commands.Cog):
             msg = str(error) or "Missing Unknown Required Argument"
             return await ctx.send(f"Error: {msg}")
 
-        elif isinstance(error, commands.BadArgument) or isinstance(error, commands.BadUnionArgument):
+        elif isinstance(error, commands.BadArgument) or isinstance(
+            error, commands.BadUnionArgument
+        ):
             msg = str(error) or "Unknown Bad Argument"
             return await ctx.send(f"Error: {msg}")
 
@@ -105,7 +91,8 @@ class CommandErrorHandler(commands.Cog):
             )
             if ctx.command.parents:
                 msg += (
-                    f"\n`{ctx.prefix}{ctx.command.full_parent_name} {ctx.command.name}` is on cooldown for " f"{time}"
+                    f"\n`{ctx.prefix}{ctx.command.full_parent_name} {ctx.command.name}` is on cooldown for "
+                    f"{time}"
                 )
             else:
                 msg += f"\n`{ctx.prefix}{ctx.command.name}` is on cooldown for {time}!"
@@ -120,12 +107,14 @@ class CommandErrorHandler(commands.Cog):
 
         elif isinstance(error, commands.NoPrivateMessage):
             try:
-                await ctx.author.send(f"{ctx.command} can not be used in Private Messages.")
+                await ctx.author.send(
+                    f"{ctx.command} can not be used in Private Messages."
+                )
             except:
                 pass
 
         else:
-            self.log_error(error, context=ctx)
+            await self.bot.get_channel(self.error_channel_id).send(error)
 
 
 def setup(bot):

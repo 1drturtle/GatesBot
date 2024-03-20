@@ -20,12 +20,9 @@ COGS = {
     "cogs.schedule",
     "cogs.errors",
     "cogs.admin",
-    # "cogs.help",
     "cogs.dm_queue",
     "cogs.strike_queue",
     "cogs.tracker",
-    "cogs.to-do",
-    # "cogs.avrae_listener",
 }
 
 
@@ -57,7 +54,6 @@ class GatesBot(commands.Bot):
         self.mongo_client = motor.motor_asyncio.AsyncIOMotorClient(config.MONGO_URL)
         self.mdb = self.mongo_client[config.MONGO_DB]
 
-        self.sentry_url = config.SENTRY_URL
         self.prefixes = dict()
         self.prefix = config.PREFIX
 
@@ -140,7 +136,4 @@ for cog in COGS:
     bot.load_extension(cog)
 
 if __name__ == "__main__":
-    if config.SENTRY_URL is not None:
-        bot.sentry = sentry_sdk.init(config.SENTRY_URL, traces_sample_rate=1)
-
     bot.run(config.TOKEN)
