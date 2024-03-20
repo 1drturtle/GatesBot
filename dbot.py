@@ -7,6 +7,8 @@ import motor.motor_asyncio
 import sentry_sdk
 from discord.ext import commands
 from utils.constants import DEBUG_SERVER
+from cogs.models.queue_models import Queue
+from ui.queue_menu import PlayerQueueUI
 import asyncio
 
 import utils.config as config
@@ -57,6 +59,8 @@ class GatesBot(commands.Bot):
         self.prefixes = dict()
         self.prefix = config.PREFIX
 
+        self.persistent_views_added = False
+
         super(GatesBot, self).__init__(command_prefix, description=desc, **options)
 
     @property
@@ -100,6 +104,10 @@ async def on_ready():
 
     bot.ready_time = datetime.utcnow()
     bot.loop = asyncio.get_running_loop()
+
+    if not bot.persistent_views_added:
+        bot.add_view(PlayerQueueUI(bot, Queue))
+        bot.persistent_views_added = True
 
     ready_message = (
         f"\n---------------------------------------------------\n"

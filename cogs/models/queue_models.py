@@ -3,6 +3,7 @@ import discord
 from utils.constants import GROUP_SIZE, ROLE_MARKERS
 from utils.constants import TIERS as TIERS
 from utils.functions import create_queue_embed, try_delete
+from ui.queue_menu import PlayerQueueUI
 
 
 def parse_tier_from_total(total_level: int) -> int:
@@ -75,12 +76,18 @@ class Player:
 
 class Group:
     def __init__(
-        self, players: list, tier: int, position: int = None, locked: bool = False
+        self,
+        players: list,
+        tier: int,
+        position: int = None,
+        locked: bool = False,
+        assigned: int = None,
     ):
         self.players = players
         self.tier = tier
         self.position = position
         self.locked = locked
+        self.assigned = assigned
 
     def to_dict(self) -> dict:
         return {
@@ -90,6 +97,7 @@ class Group:
             "tier": self.tier,
             "position": self.position,
             "locked": self.locked,
+            "assigned": self.assigned,
         }
 
     @classmethod
@@ -106,7 +114,10 @@ class Group:
         tier = data["tier"]
         pos = data["position"]
         locked = data.get("locked", None) or False
-        return cls(players=players, tier=tier, position=pos, locked=locked)
+        assigned = data.get("assigned", None)
+        return cls(
+            players=players, tier=tier, position=pos, locked=locked, assigned=assigned
+        )
 
     @property
     def player_levels(self):
@@ -147,6 +158,9 @@ class Group:
 
         return out
 
+    def assign_to(self, member):
+        self.assigned = member.id
+
     async def generate_field(self, bot):
         mark_db = bot.mdb["player_marked"]
         names = []
@@ -163,16 +177,20 @@ class Group:
 
 
 class Queue:
-    def __init__(self, groups: list, server_id, channel_id):
+    def __init__(self, groups: list, server_id, channel_id, locked=False):
         self.groups = groups
         self.server_id = server_id
         self.channel_id = channel_id
+        self.locked = locked
 
     @classmethod
     def from_dict(cls, guild: discord.Guild, data: dict):
         groups = [Group.from_dict(guild, x) for x in data["groups"]]
         return cls(
-            groups=groups, server_id=data["server_id"], channel_id=data["channel_id"]
+            groups=groups,
+            server_id=data["server_id"],
+            channel_id=data["channel_id"],
+            locked=data.get("locked", False),
         )
 
     def to_dict(self):
@@ -180,6 +198,7 @@ class Queue:
             "groups": [group.to_dict() for group in self.groups],
             "server_id": self.server_id,
             "channel_id": self.channel_id,
+            "locked": self.locked,
         }
 
     async def generate_embed(self, bot) -> discord.Embed:
@@ -188,7 +207,7 @@ class Queue:
         # Sort Groups by Tier
         self.groups.sort(key=lambda x: x.tier)
 
-        embed.title = "Gate Sign-Up List"
+        embed.title = "Gate Sign-Up List" + (" 🔒" if self.locked else "")
 
         for index, group in enumerate(self.groups):
             locked = " 🔒" if group.locked else ""
@@ -208,7 +227,7 @@ class Queue:
                 continue
 
             embed = msg.embeds[0]
-            if embed.title != "Gate Sign-Up List":
+            if not embed.title.startswith("Gate Sign-Up List"):
                 continue
 
             out = msg
@@ -231,10 +250,12 @@ class Queue:
             {"$set": data},
             upsert=True,
         )
+        # Create a View
+        view = PlayerQueueUI(bot, self.__class__)
 
         # Make a new embed
         embed = await self.generate_embed(bot)
-        return await channel.send(embed=embed)
+        return await channel.send(embed=embed, view=view)
 
     def in_queue(self, member_id) -> tuple:
         index = None
