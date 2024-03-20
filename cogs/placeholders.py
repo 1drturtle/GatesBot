@@ -85,7 +85,7 @@ class Placeholders(commands.Cog):
             "guild_id": message.guild.id,
             "channel_id": message.channel.id,
             "message_id": message.id,
-            "message_date": datetime.datetime.utcnow(),
+            "message_date": datetime.datetime.now(datetime.timezone.utc),
         }
 
         await self.placeholder_db.insert_one(data)
@@ -101,7 +101,10 @@ class Placeholders(commands.Cog):
             )
             setting = setting.get("hours", 1) if setting else 1
 
-            if (document["message_date"] + datetime.timedelta(hours=setting)) < utc_now:
+            if (
+                document["message_date"].replace(tzinfo=datetime.timezone.utc)
+                + datetime.timedelta(hours=setting)
+            ) < utc_now:
                 await self.placeholder_db.delete_one(
                     {"message_id": document["message_id"]}
                 )
@@ -148,8 +151,8 @@ class Placeholders(commands.Cog):
         except Exception:
             log.debug(f"Could not send placeholder reminder to {member.name}")
 
-    @check_db_placeholders.before_loop
-    async def before_check_db_placeholders(self):
+    @run_placeholders.before_loop
+    async def before_run_placeholders(self):
         await self.bot.wait_until_ready()
 
     @commands.command(name="updatetime")

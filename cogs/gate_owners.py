@@ -52,6 +52,7 @@ class GateOwners(commands.Cog):
                 log.warning("[GateTracker] No owner for " + gate.get("name"))
                 continue
 
+            name = gate["name"]
             ic_c = discord.utils.find(lambda c: c.name == f"{name}-ic", guild.channels)
             ooc_c = discord.utils.find(
                 lambda c: c.name == f"{name}-ooc", guild.channels
