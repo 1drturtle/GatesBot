@@ -43,7 +43,10 @@ class Utility(commands.Cog):
         bot_up = time_to_readable(self.bot.uptime)
         embed.add_field(name="Bot Uptime", value=f"{bot_up}")
         if ctx.bot.is_ready():
-            embed.add_field(name="Ready Uptime", value=f"{time_to_readable(datetime.utcnow() - self.bot.ready_time)}")
+            embed.add_field(
+                name="Ready Uptime",
+                value=f"{time_to_readable(datetime.utcnow() - self.bot.ready_time)}",
+            )
         return await ctx.send(embed=embed)
 
     @commands.command(name="info", aliases=["about"])
@@ -85,7 +88,8 @@ class Utility(commands.Cog):
             color: discord.Colour = await color_converter.convert(ctx, color)
         except commands.BadArgument:
             return await ctx.send(
-                "You have provided an invalid color. See the link in the help page for a list of " "possible colors."
+                "You have provided an invalid color. See the link in the help page for a list of "
+                "possible colors."
             )
         embed.title = str(hex(color.value))
         embed.colour = color
@@ -99,51 +103,10 @@ class Utility(commands.Cog):
         """
         embed = create_default_embed(ctx)
         embed.title = "GatesBot Source"
-        embed.description = "[Click here for the Source Code.](https://github.com/1drturtle/GatesBot)"
-        embed.set_thumbnail(url=str(self.bot.user.avatar_url))
-        await ctx.send(embed=embed)
-
-    @commands.command(name="debug")
-    async def debug(self, ctx):
-        """
-        Debugging commands for GatesBot
-        """
-        embed = create_default_embed(ctx)
-        embed.title = "GatesBot Debug"
-        # -- Calculate Values --
-        proc = psutil.Process(os.getpid())
-        cpu = psutil.cpu_percent()
-        mem = psutil.virtual_memory()
-        mem_used = proc.memory_full_info().uss
-        if self._command_count is None:
-            self._command_count = len(
-                [command for cog in self.bot.cogs for command in self.bot.get_cog(cog).walk_commands()]
-            )
-        command_count = self._command_count
-        # -- Add fields ---
-        embed.add_field(
-            name="Memory Usage",
-            value=f"{round((mem_used / 1000000), 2)} "
-            f"/ {round((mem.total / 1000000), 2)} MB "
-            f"({round(100 * (mem_used / mem.total), 2)}%)",
+        embed.description = (
+            "[Click here for the Source Code.](https://github.com/1drturtle/GatesBot)"
         )
-        embed.add_field(name="CPU Usage", value=f"{round(cpu, 2)}%")
-        embed.add_field(name="Commands", value=f"{command_count} total commands loaded.")
-
-        await ctx.send(embed=embed)
-
-    @commands.command(name="raw")
-    async def raw_message(self, ctx, message_id: int):
-        """
-        Returns the escaped markdown for a message. The message must be in the same channel as this command.
-        """
-        embed = create_default_embed(ctx)
-        try:
-            message = await ctx.channel.fetch_message(message_id)
-        except discord.NotFound:
-            return await ctx.send(f"Could not find the message with ID `{message_id}`")
-        embed.title = f"Escaped Markdown for Message with ID `{message_id}`"
-        embed.description = discord.utils.escape_markdown(message.content)
+        embed.set_thumbnail(url=str(self.bot.user.avatar_url))
         await ctx.send(embed=embed)
 
     @commands.command(name="servinfo", aliases=["sinfo"])

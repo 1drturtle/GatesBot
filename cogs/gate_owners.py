@@ -32,17 +32,15 @@ class Gate:
         )
 
 
-class GateTracker(commands.Cog):
+class GateOwners(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.gates_db = self.bot.mdb["gate_list"]
-        self.tracker_db = self.bot.mdb["gate_tracker"]
         self.server_id = (
             constants.GATES_SERVER
             if self.bot.environment != "testing"
             else constants.DEBUG_SERVER
         )
-        self.gates = []
 
     async def cog_load(self):
         """Loads all claimed Gate channels on"""
@@ -54,7 +52,6 @@ class GateTracker(commands.Cog):
                 log.warning("[GateTracker] No owner for " + gate.get("name"))
                 continue
 
-            name = gate["name"]
             ic_c = discord.utils.find(lambda c: c.name == f"{name}-ic", guild.channels)
             ooc_c = discord.utils.find(
                 lambda c: c.name == f"{name}-ooc", guild.channels
@@ -69,12 +66,7 @@ class GateTracker(commands.Cog):
             if not owner:
                 log.error("[GateTracker] Could not find member for " + name)
 
-            gate = Gate(name, ic_c, ooc_c, dice_c, owner)
-            self.gates.append(gate)
-        log.info("[GateTracker] All gates loaded.")
-
-    def cog_unload(self):
-        self.gates = []
+        log.info("[GateTracker] All Gates loaded.")
 
     @commands.command(name="claim-gate")
     @has_role("DM")
@@ -121,4 +113,4 @@ class GateTracker(commands.Cog):
 
 
 def setup(bot):
-    bot.add_cog(GateTracker(bot))
+    bot.add_cog(GateOwners(bot))

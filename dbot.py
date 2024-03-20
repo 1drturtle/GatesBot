@@ -22,7 +22,7 @@ COGS = {
     "cogs.admin",
     "cogs.dm_queue",
     "cogs.strike_queue",
-    "cogs.tracker",
+    "cogs.gate_owners",
 }
 
 
