@@ -866,6 +866,7 @@ class QueueChannel(commands.Cog):
         queue = await queue_from_guild(self.queue_db, ctx.guild)
 
         serv = self.bot.get_guild(self.server_id)
+        queue.locked = True
         await queue.update(self.bot, self.queue_db, serv.get_channel(self.channel_id))
 
     @lock_queue.command(name="group")
@@ -958,6 +959,7 @@ class QueueChannel(commands.Cog):
                     break
 
         serv = self.bot.get_guild(self.server_id)
+        queue.locked = False
         await queue.update(self.bot, self.queue_db, serv.get_channel(self.channel_id))
 
         announce: disnake.TextChannel = serv.get_channel(self.announcement_channel_id)
