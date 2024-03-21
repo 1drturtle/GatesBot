@@ -564,7 +564,7 @@ class QueueChannel(commands.Cog):
 
         all_players = []
         for group in queue.groups.copy():
-            if group.tier != tier:
+            if group.tier != tier or group.locked:
                 continue
             queue.groups.remove(group)
             all_players.extend(group.players)
