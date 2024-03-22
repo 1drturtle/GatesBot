@@ -8,6 +8,7 @@ from discord.ext import commands
 import utils.constants as constants
 from utils.checks import has_role
 from utils.functions import create_queue_embed, try_delete, create_default_embed
+from ui.strike_queue_menu import StrikeQueueUI
 
 log = logging.getLogger(__name__)
 
@@ -28,7 +29,11 @@ class StrikeQueue(commands.Cog):
             if self.bot.environment == "testing"
             else constants.STRIKE_QUEUE_ASSIGNMENT_CHANNEL
         )
-        self.server_id = constants.GATES_SERVER if self.bot.environment != "testing" else constants.DEBUG_SERVER
+        self.server_id = (
+            constants.GATES_SERVER
+            if self.bot.environment != "testing"
+            else constants.DEBUG_SERVER
+        )
 
         self.db = self.bot.mdb["strike_queue"]
         self.gate_db = bot.mdb["gate_list"]
@@ -55,7 +60,10 @@ class StrikeQueue(commands.Cog):
         content = discord.utils.remove_markdown(msg.content.lower())
         msg_content = content.replace("ready: ", "").strip()
 
-        content = {"$set": {"content": msg_content, "msg": msg.id}, "$currentDate": {"readyOn": True}}
+        content = {
+            "$set": {"content": msg_content, "msg": msg.id},
+            "$currentDate": {"readyOn": True},
+        }
 
         await self.db.update_one({"_id": msg.author.id}, content, upsert=True)
 
@@ -117,7 +125,9 @@ class StrikeQueue(commands.Cog):
             await try_delete(msg)
 
         # send new
-        await ch.send(embed=embed)
+        view = StrikeQueueUI(self.bot, self.__class__)
+
+        await ch.send(embed=embed, view=view)
 
     @commands.group(name="strike", invoke_without_command=True)
     async def strike(self, ctx):
@@ -126,7 +136,9 @@ class StrikeQueue(commands.Cog):
 
     @strike.command(name="assign")
     @has_role("DM")
-    async def strike_assign(self, ctx, queue_nums: commands.Greedy[int], gate_name: str):
+    async def strike_assign(
+        self, ctx, queue_nums: commands.Greedy[int], gate_name: str
+    ):
         """
         Assigns a Strike member to a group
         `queue_num` - The Strike member(s) queue number(s). You can assign multiple members at once.
@@ -134,19 +146,26 @@ class StrikeQueue(commands.Cog):
         """
         ch = ctx.guild.get_channel(self.assign_id)
 
-        queue_data = await self.db.find().sort("readyOn", pymongo.ASCENDING).to_list(None)
+        queue_data = (
+            await self.db.find().sort("readyOn", pymongo.ASCENDING).to_list(None)
+        )
 
         dms = []
 
         for queue_num in queue_nums:
             if len(queue_data) == 0:
-                return await ctx.send("No Strike Team members currently in Strike Team queue.")
+                return await ctx.send(
+                    "No Strike Team members currently in Strike Team queue."
+                )
             if queue_num > (size := len(queue_data)):
                 return await ctx.send(
-                    f"Invalid Strike Team Queue number ({queue_num})." f" Must be less than or equal to {size}"
+                    f"Invalid Strike Team Queue number ({queue_num})."
+                    f" Must be less than or equal to {size}"
                 )
             elif queue_num < 1:
-                return await ctx.send(f"Invalid Strike Team Queue number ({queue_num}). Must be at least 1.")
+                return await ctx.send(
+                    f"Invalid Strike Team Queue number ({queue_num}). Must be at least 1."
+                )
 
             dms.append(queue_data[(queue_num - 1)])
 
@@ -155,7 +174,8 @@ class StrikeQueue(commands.Cog):
         gate_data = await self.gate_db.find_one({"name": gate_name.lower()})
         if gate_data is None:
             return await ctx.send(
-                f"{gate_name} does not exist, please try again with a valid gate name.", delete_after=5
+                f"{gate_name} does not exist, please try again with a valid gate name.",
+                delete_after=5,
             )
         gate_name = gate_data.get("name")
 
@@ -169,14 +189,18 @@ class StrikeQueue(commands.Cog):
         await ch.send(msg, allowed_mentions=discord.AllowedMentions(users=True))
 
         for p in people:
-            await self.data_db.update_one({"_id": p.id}, {"$set": {"last_strike": gate_name}})
+            await self.data_db.update_one(
+                {"_id": p.id}, {"$set": {"last_strike": gate_name}}
+            )
             # role = discord.utils.find(lambda r: r.name == f'{gate_name.title()} Gate', ctx.guild.roles)
             # if role:
             #     await p.add_roles(role, reason='Strike Queue Signup, adding role.')
 
         # reinforcement analytics
 
-        dm_info = await self.bot.mdb["dm_analytics"].find_one({"_id": gate_data.get("owner", None)})
+        dm_info = await self.bot.mdb["dm_analytics"].find_one(
+            {"_id": gate_data.get("owner", None)}
+        )
         last_gate = dm_info["dm_gates"][-1]
 
         await self.r_db.insert_one(
@@ -205,11 +229,15 @@ class StrikeQueue(commands.Cog):
         """Update your Strike Team queue entry."""
         embed = create_default_embed(ctx)
         embed.title = "Strike Team Queue Updated."
-        embed.description = "If you are in the Strike Team queue, your message has been updated."
+        embed.description = (
+            "If you are in the Strike Team queue, your message has been updated."
+        )
         embed.add_field(name="New Message", value=rank_content)
 
         try:
-            await self.db.update_one({"_id": ctx.author.id}, {"$set": {"content": rank_content}})
+            await self.db.update_one(
+                {"_id": ctx.author.id}, {"$set": {"content": rank_content}}
+            )
         except:
             pass
         else:
@@ -248,7 +276,9 @@ class StrikeQueue(commands.Cog):
         """Remove a member from the Strike Queue."""
         embed = create_default_embed(ctx)
         embed.title = "User Removed from Queue."
-        embed.description = f"{to_remove.mention} has been removed from queue, if they were in it."
+        embed.description = (
+            f"{to_remove.mention} has been removed from queue, if they were in it."
+        )
 
         try:
             await self.db.delete_one({"_id": to_remove.id})

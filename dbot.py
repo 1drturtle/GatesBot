@@ -1,19 +1,20 @@
+import asyncio
 import logging
 import sys
 from datetime import datetime
 
 import discord
 import motor.motor_asyncio
-import sentry_sdk
 from discord.ext import commands
-from utils.constants import DEBUG_SERVER
-from cogs.models.queue_models import Queue
-from cogs.dm_queue import DMQueue
-from ui.queue_menu import PlayerQueueUI
-from ui.dm_queue_menu import DMQueueUI
-import asyncio
 
 import utils.config as config
+from cogs.dm_queue import DMQueue
+from cogs.models.queue_models import Queue
+from cogs.strike_queue import StrikeQueue
+from ui.dm_queue_menu import DMQueueUI
+from ui.queue_menu import PlayerQueueUI
+from ui.strike_queue_menu import StrikeQueueUI
+from utils.constants import DEBUG_SERVER
 from utils.functions import try_delete
 
 COGS = {
@@ -110,6 +111,7 @@ async def on_ready():
     if not bot.persistent_views_added:
         bot.add_view(PlayerQueueUI(bot, Queue))
         bot.add_view(DMQueueUI(bot, DMQueue))
+        bot.add_view(StrikeQueueUI(bot, StrikeQueue))
         bot.persistent_views_added = True
 
     ready_message = (
