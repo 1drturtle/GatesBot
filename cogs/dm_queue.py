@@ -14,6 +14,7 @@ from cogs.models.queue_models import Queue, Group
 from cogs.queue import queue_from_guild, length_check
 from utils.checks import has_role, has_any_role
 from utils.functions import create_queue_embed, try_delete, create_default_embed
+from ui.dm_queue_menu import DMQueueUI
 
 GateGroup = namedtuple("GateGroup", "gate claimed name")
 
@@ -129,7 +130,9 @@ class DMQueue(commands.Cog):
             await try_delete(msg)
 
         # send new
-        await ch.send(embed=embed)
+        view = DMQueueUI(self.bot, self.__class__)
+
+        await ch.send(embed=embed, view=view)
 
     @commands.group(name="dm", invoke_without_command=True)
     async def dm(self, ctx):

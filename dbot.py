@@ -8,7 +8,9 @@ import sentry_sdk
 from discord.ext import commands
 from utils.constants import DEBUG_SERVER
 from cogs.models.queue_models import Queue
+from cogs.dm_queue import DMQueue
 from ui.queue_menu import PlayerQueueUI
+from ui.dm_queue_menu import DMQueueUI
 import asyncio
 
 import utils.config as config
@@ -107,6 +109,7 @@ async def on_ready():
 
     if not bot.persistent_views_added:
         bot.add_view(PlayerQueueUI(bot, Queue))
+        bot.add_view(DMQueueUI(bot, DMQueue))
         bot.persistent_views_added = True
 
     ready_message = (
