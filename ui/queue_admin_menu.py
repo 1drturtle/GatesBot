@@ -283,16 +283,39 @@ class GroupManagerUI(ManageUIParent):
         pass
 
     async def generate_menu(self, interaction) -> disnake.Embed:
+        queue = await self.queue_from_guild(self.queue_db, interaction.guild)
+        self.group = queue.groups[self.group_num]
+
         assigned = f"<@{self.group.assigned}>" if self.group.assigned else "No."
 
         embed = create_default_embed(interaction)
         embed.title = "GatesBot - Group Manager"
+        locked_emoji = "🔒 Locked" if self.group.locked else "🔓 Unlocked"
         embed.description = (
-            f"**Locked:** {self.group.locked}\n" f"**Assigned:** {assigned}\n"
+            f"**Status:** {locked_emoji}\n" f"**Assigned:** {assigned}\n"
         )
         embed.add_field("Members", await self.group.generate_field(self.bot))
         embed.add_field("Characters", self.group.player_levels_str, inline=False)
         return embed
+
+    @disnake.ui.button(label="↩ Back", style=disnake.ButtonStyle.red)
+    async def back_button(self, button, inter):
+        await self.move_to_view(inter, self.parent_view)
+
+    @disnake.ui.button(label="🔒 Toggle Group Lock", style=disnake.ButtonStyle.red)
+    async def lock_group_button(self, button, inter):
+        queue = await self.queue_from_guild(self.queue_db, inter.guild)
+
+        serv = self.bot.get_guild(self.server_id)
+        queue.groups[self.group_num].locked = (
+            st := not queue.groups[self.group_num].locked
+        )
+
+        await queue.update(self.bot, self.queue_db, serv.get_channel(self.channel_id))
+        log.info(
+            f"[Queue] Group #{self.group_num} {'locked' if st else 'unlocked'} by {inter.author}."
+        )
+        return await self.refresh_menu(inter)
 
     @disnake.ui.button(label="Assign", style=disnake.ButtonStyle.green)
     async def assign_button(self, button, inter: disnake.MessageInteraction):
@@ -354,13 +377,7 @@ class GroupManagerUI(ManageUIParent):
         await self.dm_queue_db.delete_one({"_id": who.id})
         await self.bot.cogs["DMQueue"].update_queue()
 
-        log.info(
-            f"[DM Queue] {inter.author} assigned Gate #{self.group_num} to {who}."
-        )
-
-    @disnake.ui.button(label="↩ Back", style=disnake.ButtonStyle.red)
-    async def back_button(self, button, inter):
-        await self.move_to_view(inter, self.parent_view)
+        log.info(f"[DM Queue] {inter.author} assigned Gate #{self.group_num} to {who}.")
 
 
 class DMSelector(disnake.ui.StringSelect):
@@ -387,7 +404,11 @@ class DMSelector(disnake.ui.StringSelect):
         if selected_dm_name == "No DMs in Queue.":
             return await inter.send("I can't do anything!", ephemeral=True)
 
-        selected_dm = [x for x in self.dms if (selected_dm_name == x.nick or selected_dm_name == x.display_name)][0]
+        selected_dm = [
+            x
+            for x in self.dms
+            if (selected_dm_name == x.nick or selected_dm_name == x.display_name)
+        ][0]
         self.selected = selected_dm
 
         return await inter.send(
