@@ -313,7 +313,7 @@ class GroupManagerUI(ManageUIParent):
 
         await queue.update(self.bot, self.queue_db, serv.get_channel(self.channel_id))
         log.info(
-            f"[Queue] Group #{self.group_num} {'locked' if st else 'unlocked'} by {inter.author}."
+            f"[Queue] Group #{self.group_num+1} {'locked' if st else 'unlocked'} by {inter.author}."
         )
         return await self.refresh_menu(inter)
 
@@ -335,7 +335,7 @@ class GroupManagerUI(ManageUIParent):
         group = gates_data.groups[self.group_num]
 
         msg = (
-            f"Group {self.group_num} is yours, see above for details."
+            f"Group {self.group_num+1} is yours, see above for details."
             f" Don't forget to submit your encounter in <#798247432743551067> once ready and claim once approved!"
             f" Kindly note that this is a **{len(group.players)} person Rank {group.tier_str}** "
             f"group and adjust your encounter as needed."
@@ -353,7 +353,7 @@ class GroupManagerUI(ManageUIParent):
             player.member = await inter.guild.fetch_member(player.member.id)
 
         embed2 = create_queue_embed(self.bot)
-        embed2.title = f"Information for Group #{self.group_num}"
+        embed2.title = f"Information for Group #{self.group_num+1}"
         embed2.description = group.player_levels_str
         await ch.send(embed=embed2)
         await ch.send(
@@ -377,7 +377,9 @@ class GroupManagerUI(ManageUIParent):
         await self.dm_queue_db.delete_one({"_id": who.id})
         await self.bot.cogs["DMQueue"].update_queue()
 
-        log.info(f"[DM Queue] {inter.author} assigned Gate #{self.group_num} to {who}.")
+        log.info(
+            f"[DM Queue] {inter.author} assigned Gate #{self.group_num+1} to {who}."
+        )
 
         await self.refresh_menu(inter)
 
