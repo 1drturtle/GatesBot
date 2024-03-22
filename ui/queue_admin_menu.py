@@ -379,6 +379,8 @@ class GroupManagerUI(ManageUIParent):
 
         log.info(f"[DM Queue] {inter.author} assigned Gate #{self.group_num} to {who}.")
 
+        await self.refresh_menu(inter)
+
 
 class DMSelector(disnake.ui.StringSelect):
     def __init__(self, bot, queue, dm_queue_data):
@@ -412,5 +414,5 @@ class DMSelector(disnake.ui.StringSelect):
         self.selected = selected_dm
 
         return await inter.send(
-            f"{selected_dm.mention} selected. Click Assign to confirm.", ephemeral=True
+            f"{selected_dm.mention} selected. Click Assign to confirm.", ephemeral=True, delete_after=15
         )
