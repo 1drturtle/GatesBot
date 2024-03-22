@@ -236,7 +236,7 @@ class GroupSelector(disnake.ui.StringSelect):
             .sort("readyOn", pymongo.ASCENDING)
             .to_list(None)
         )
-        dm_data = [await inter.guild.fetch_member(int(x["_id"])) for x in dm_data]
+        dm_data = [(await inter.guild.fetch_member(int(x["_id"])), x) for x in dm_data]
 
         group_ui = GroupManagerUI(
             self.bot,
@@ -390,7 +390,10 @@ class DMSelector(disnake.ui.StringSelect):
         self.selected: Optional[discord.Member] = None
 
         # options based on dm_queue_data
-        options = [(dm.nick or dm.display_name) for dm in self.dms]
+        options = [
+            (dm.nick or dm.display_name) + ": " + d_data.get("ranks")
+            for dm, d_data in self.dms
+        ]
         if not options:
             options = ["No DMs in Queue."]
 
@@ -405,14 +408,17 @@ class DMSelector(disnake.ui.StringSelect):
         selected_dm_name = self.values[0]
         if selected_dm_name == "No DMs in Queue.":
             return await inter.send("I can't do anything!", ephemeral=True)
+        selected_dm_name = selected_dm_name.split(":")[0]
 
         selected_dm = [
             x
-            for x in self.dms
+            for x, d in self.dms
             if (selected_dm_name == x.nick or selected_dm_name == x.display_name)
         ][0]
         self.selected = selected_dm
 
         return await inter.send(
-            f"{selected_dm.mention} selected. Click Assign to confirm.", ephemeral=True, delete_after=15
+            f"{selected_dm.mention} selected. Click Assign to confirm.",
+            ephemeral=True,
+            delete_after=15,
         )
