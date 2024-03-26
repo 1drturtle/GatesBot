@@ -5,10 +5,9 @@ import discord
 import disnake
 
 import utils.constants as constants
-from ui.queue_admin_menu import PlayerQueueManageUi
+from ui.queue_admin_menu import PlayerQueueManageUI
 
 log = logging.getLogger(__name__)
-
 
 
 class PlayerQueueUI(disnake.ui.View):
@@ -113,7 +112,7 @@ class PlayerQueueUI(disnake.ui.View):
                 "You are not allowed to use this function.", ephemeral=True
             )
 
-        view = PlayerQueueManageUi(self.bot, queue)
+        view = PlayerQueueManageUI(self.bot, queue)
         embed = await view.generate_menu(inter)
 
         return await inter.send(embed=embed, view=view, ephemeral=True)
@@ -150,7 +149,9 @@ class PlayerQueueUI(disnake.ui.View):
                 group_i = i
 
         if group_i is None:
-            return await inter.send("You do not currently have a Gate assigned.", ephemeral=True)
+            return await inter.send(
+                "You do not currently have a Gate assigned.", ephemeral=True
+            )
 
         serv = self.bot.get_guild(self.server_id)
         popped = queue.groups.pop(group_i)
@@ -254,7 +255,9 @@ class PlayerQueueUI(disnake.ui.View):
             await summons_ch.send(
                 msg, allowed_mentions=discord.AllowedMentions(users=True)
             )
-        log.info(f"[Queue] Gate #{group_i} ({gate['name']} gate) claimed by {inter.author}.")
+        log.info(
+            f"[Queue] Gate #{group_i} ({gate['name']} gate) claimed by {inter.author}."
+        )
 
         await queue.update(self.bot, self.queue_db, serv.get_channel(self.channel_id))
         return await inter.send("Gate has been claimed", ephemeral=True)

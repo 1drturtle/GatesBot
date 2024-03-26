@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import datetime
 import logging
+import random
 from typing import Optional
 
 import discord
@@ -16,7 +17,7 @@ log = logging.getLogger(__name__)
 
 class ManageUIParent(disnake.ui.View):
     def __init__(self, bot, queue):
-        super().__init__(timeout=None)
+        super().__init__(timeout=60)
         self.bot = bot
         self.queue_type = queue.__class__
         self.queue_db = bot.mdb["player_queue"]
@@ -47,14 +48,14 @@ class ManageUIParent(disnake.ui.View):
         queue.groups.sort(key=lambda x: x.tier)
         return queue
 
-    async def refresh_menu(self, interaction):
+    async def refresh_menu(self, interaction, kill=False):
         await self.custom_refresh(interaction)
         embed = await self.generate_menu(interaction)
 
         if interaction.response.is_done():
-            await interaction.edit_original_message(view=self, embed=embed)
+            await interaction.edit_original_message(content=None, view=None if kill else self, embed=embed)
         else:
-            await interaction.response.edit_message(view=self, embed=embed)
+            await interaction.response.edit_message(content=None, view=None if kill else self, embed=embed)
 
     async def move_to_view(self, interaction, new_view):
         embed = await new_view.generate_menu(interaction)
@@ -96,7 +97,7 @@ class ManageUIParent(disnake.ui.View):
             return None
 
 
-class PlayerQueueManageUi(ManageUIParent):
+class PlayerQueueManageUI(ManageUIParent):
     def __init__(self, bot, queue):
         super().__init__(bot, queue)
         self.group_selector = GroupSelector(bot, queue, self)
@@ -215,6 +216,53 @@ class PlayerQueueManageUi(ManageUIParent):
             )
 
         await self.refresh_menu(inter)
+
+    @disnake.ui.button(label="Shuffle Rank", emoji="🔀")
+    async def shuffle_button(self, button, inter: disnake.MessageInteraction):
+        queue = await self.queue_from_guild(self.queue_db, inter.guild)
+        tier_choice = await self.prompt_message(
+            inter, prompt="Enter Rank to shuffle (1-7): "
+        )
+
+        try:
+            tier_choice = int(tier_choice)
+        except ValueError:
+            return await inter.send("Invalid Rank to shuffle.", ephemeral=True)
+
+        group_type = None
+
+        selected_players = []
+        for group in queue.groups.copy():
+            group_type = group.__class__
+            if group.tier != tier_choice or group.locked:
+                continue
+            queue.groups.remove(group)
+            selected_players.extend(group.players)
+
+        if len(selected_players) == 0:
+            return await inter.send(
+                f"No players in Rank {tier_choice} was found.", ephemeral=True
+            )
+
+        selected_players = random.sample(selected_players, len(selected_players))
+
+        for player in selected_players:
+            if (
+                index := queue.can_fit_in_group(player, constants.GROUP_SIZE)
+            ) is not None:
+                queue.groups[index].players.append(player)
+            else:
+                new_group = group_type.new(player.tier, [player])
+                queue.groups.append(new_group)
+
+        await queue.update(
+            self.bot, self.queue_db, inter.guild.get_channel(self.channel_id)
+        )
+
+        await asyncio.sleep(2)
+
+        await self.refresh_menu(inter)
+        log.info(f"[Queue] Rank {tier_choice} shuffled by {inter.author}.")
 
 
 class GroupSelector(disnake.ui.StringSelect):
