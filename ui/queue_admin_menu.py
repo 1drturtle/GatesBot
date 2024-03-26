@@ -149,7 +149,7 @@ class PlayerQueueManageUi(ManageUIParent):
             if is_locked
             else None
         )
-        if reason.lower() == "ga":
+        if reason and reason.lower() == "ga":
             reason = "Gate Assignments."
 
         player_perms.update(send_messages=not is_locked)
