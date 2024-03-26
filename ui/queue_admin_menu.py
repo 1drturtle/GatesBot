@@ -53,9 +53,13 @@ class ManageUIParent(disnake.ui.View):
         embed = await self.generate_menu(interaction)
 
         if interaction.response.is_done():
-            await interaction.edit_original_message(content=None, view=None if kill else self, embed=embed)
+            await interaction.edit_original_message(
+                content=None, view=None if kill else self, embed=embed
+            )
         else:
-            await interaction.response.edit_message(content=None, view=None if kill else self, embed=embed)
+            await interaction.response.edit_message(
+                content=None, view=None if kill else self, embed=embed
+            )
 
     async def move_to_view(self, interaction, new_view):
         embed = await new_view.generate_menu(interaction)
@@ -221,13 +225,15 @@ class PlayerQueueManageUI(ManageUIParent):
     async def shuffle_button(self, button, inter: disnake.MessageInteraction):
         queue = await self.queue_from_guild(self.queue_db, inter.guild)
         tier_choice = await self.prompt_message(
-            inter, prompt="Enter Rank to shuffle (1-7): "
+            inter, prompt="Enter Shuffle Rank (optional, group size) Ex: 4,6"
         )
 
         try:
-            tier_choice = int(tier_choice)
+            tier_choice = tier_choice.split(",")
+            group_choice = int(tier_choice[1]) if len(tier_choice) > 1 else 5
+            tier_choice = int(tier_choice[0])
         except ValueError:
-            return await inter.send("Invalid Rank to shuffle.", ephemeral=True)
+            return await inter.send("Invalid Rank or Group Size.", ephemeral=True)
 
         group_type = None
 
@@ -247,9 +253,7 @@ class PlayerQueueManageUI(ManageUIParent):
         selected_players = random.sample(selected_players, len(selected_players))
 
         for player in selected_players:
-            if (
-                index := queue.can_fit_in_group(player, constants.GROUP_SIZE)
-            ) is not None:
+            if (index := queue.can_fit_in_group(player, group_choice)) is not None:
                 queue.groups[index].players.append(player)
             else:
                 new_group = group_type.new(player.tier, [player])
