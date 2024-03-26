@@ -144,6 +144,16 @@ class PlayerQueueManageUi(ManageUIParent):
         is_locked = player_perms.send_messages
         locked_status = "locked" if is_locked else "unlocked"
 
+        if is_locked:
+            # Admins only can lock.
+            if not (
+                inter.author.id == self.bot.owner_id
+                or any(True for r in inter.author.roles if r.name == "Admin")
+            ):
+                return await inter.send(
+                    "You are not allowed to use this function.", ephemeral=True
+                )
+
         reason = (
             await ManageUIParent.prompt_message(inter, "Specify a reason:")
             if is_locked
