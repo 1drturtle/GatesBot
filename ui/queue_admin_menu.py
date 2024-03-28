@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 
 class ManageUIParent(disnake.ui.View):
     def __init__(self, bot, queue):
-        super().__init__(timeout=60)
+        super().__init__(timeout=None)
         self.bot = bot
         self.queue_type = queue.__class__
         self.queue_db = bot.mdb["player_queue"]
@@ -54,11 +54,11 @@ class ManageUIParent(disnake.ui.View):
 
         if interaction.response.is_done():
             await interaction.edit_original_message(
-                content=None, view=None if kill else self, embed=embed
+                content=None, view=self, embed=embed
             )
         else:
             await interaction.response.edit_message(
-                content=None, view=None if kill else self, embed=embed
+                content=None, view=self, embed=embed
             )
 
     async def move_to_view(self, interaction, new_view):
