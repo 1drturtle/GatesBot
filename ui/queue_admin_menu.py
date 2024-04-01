@@ -381,8 +381,11 @@ class GroupManagerUI(ManageUIParent):
 
     @disnake.ui.button(label="Assign", style=disnake.ButtonStyle.green)
     async def assign_button(self, button, inter: disnake.MessageInteraction):
+
         if self.dm_selector.selected is None:
             return await inter.send("No DM selected, cannot assign", ephemeral=True)
+
+        await inter.response.defer()
 
         who = self.dm_selector.selected
         ch = inter.guild.get_channel(self.assign_id)
