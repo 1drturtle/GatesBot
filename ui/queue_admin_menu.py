@@ -136,6 +136,8 @@ class PlayerQueueManageUI(ManageUIParent):
 
     @disnake.ui.button(label="Toggle Lock", emoji="🔒")
     async def toggle_queue_lock(self, button, inter: disnake.MessageInteraction):
+
+        await inter.response.defer()
         queue_channel: discord.TextChannel = inter.guild.get_channel(self.channel_id)
 
         # new perms
@@ -223,6 +225,9 @@ class PlayerQueueManageUI(ManageUIParent):
 
     @disnake.ui.button(label="Shuffle Rank", emoji="🔀")
     async def shuffle_button(self, button, inter: disnake.MessageInteraction):
+
+        await inter.response.defer()
+
         queue = await self.queue_from_guild(self.queue_db, inter.guild)
         tier_choice = await self.prompt_message(
             inter, prompt="Enter Shuffle Rank (optional, group size) Ex: 4,6"
@@ -366,6 +371,9 @@ class GroupManagerUI(ManageUIParent):
 
     @disnake.ui.button(label="🔒 Toggle Group Lock", style=disnake.ButtonStyle.red)
     async def lock_group_button(self, button, inter):
+
+        await inter.response.defer()
+
         queue = await self.queue_from_guild(self.queue_db, inter.guild)
 
         serv = self.bot.get_guild(self.server_id)
@@ -447,6 +455,7 @@ class GroupManagerUI(ManageUIParent):
         )
 
         await self.refresh_menu(inter)
+        await inter.send(f"Gate #{self.group_num+1} assigned to {who}", ephemeral=True)
 
 
 class DMSelector(disnake.ui.StringSelect):
