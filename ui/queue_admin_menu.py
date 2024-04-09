@@ -469,7 +469,7 @@ class DMSelector(disnake.ui.StringSelect):
         options = [
             (l := (dm.nick or dm.display_name))
             + ": "
-            + d_data.get("ranks")[: 99 - len(l)]
+            + d_data.get("ranks")[: 80 - len(l)]
             for dm, d_data in self.dms
         ]
         if not options:
