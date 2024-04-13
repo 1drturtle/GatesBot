@@ -91,6 +91,10 @@ class PlayerQueueUI(disnake.ui.View):
             {"user_id": inter.author.id}, data, upsert=True
         )
 
+        await self.mark_db.update_one(
+            {"_id": inter.author.id}, {"$set": {"marked": False}}
+        )
+
         return await inter.send(
             f"You have been removed from group #{group_index[0] + 1}", ephemeral=True
         )
