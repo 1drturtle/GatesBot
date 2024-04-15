@@ -356,10 +356,12 @@ class GroupManagerUI(ManageUIParent):
         assigned = f"<@{self.group.assigned}>" if self.group.assigned else "No."
 
         embed = create_default_embed(interaction)
-        embed.title = "GatesBot - Group Manager"
+        embed.title = f"GatesBot - Group #{self.group_num+1}"
         locked_emoji = "🔒 Locked" if self.group.locked else "🔓 Unlocked"
         embed.description = (
-            f"**Status:** {locked_emoji}\n" f"**Assigned:** {assigned}\n"
+            f"**Rank:** {self.group.tier_str.replace('_', '')}\n"
+            f"**Status:** {locked_emoji}\n"
+            f"**Assigned:** {assigned}\n"
         )
         embed.add_field("Members", await self.group.generate_field(self.bot))
         embed.add_field("Characters", self.group.player_levels_str, inline=False)
