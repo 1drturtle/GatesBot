@@ -137,6 +137,8 @@ class PlayerQueueUI(disnake.ui.View):
                 "You are not allowed to use this function.", ephemeral=True
             )
 
+        await inter.response.defer()
+
         queue = await self.queue_from_guild(self.queue_db, inter.guild)
         # Get our Gate from the DB
         gate = await self.gate_list_db.find_one({"owner": inter.author.id})

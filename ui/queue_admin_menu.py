@@ -291,10 +291,15 @@ class GroupSelector(disnake.ui.StringSelect):
         options = []
         for i, group in enumerate(self.queue.groups):
             options.append(disnake.SelectOption(label=f"{i+1}. Rank {group.tier}"))
+        if not options:
+            options = ["No queue groups."]
 
         return options
 
     async def callback(self, inter: disnake.MessageInteraction):
+        if "No queue groups" in self.values[0]:
+            return await self.parent_view.refresh_menu(inter)
+
         selection = int(self.values[0].split(".")[0]) - 1
 
         dm_data = (
