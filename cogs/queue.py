@@ -465,6 +465,39 @@ class QueueChannel(commands.Cog):
             delete_after=10,
         )
 
+    @commands.command(name="merge")
+    @commands.check_any(has_role("Admin"), commands.is_owner())
+    async def merge_groups(self, ctx, group_1: int, group_2: int):
+        """Merges the second group into the first."""
+        queue = await queue_from_guild(self.queue_db, ctx.guild)
+        # merge into the larger group
+
+        length = len(queue.groups)
+        if length == 1:
+            return await ctx.send(
+                "There is only one group in the queue.", delete_after=3
+            )
+
+        for i in (group_1, group_2):
+            check = length_check(length, i)
+            if check is not None:
+                return await ctx.send(check)
+
+        for player in queue.groups[group_2 - 1].players:
+            queue.groups[group_1 - 1].players.append(player)
+
+        queue.groups.pop(group_2 - 1)
+
+        serv = self.bot.get_guild(self.server_id)
+
+        await queue.update(self.bot, self.queue_db, serv.get_channel(self.channel_id))
+
+        log.info(f"[Queue] {ctx.author} merged group #{group_1} and #{group_2}.")
+        return await ctx.send(
+            f"Group #{group_1} and #{group_2} have been merged.",
+            delete_after=5,
+        )
+
     @commands.command(name="queue")
     async def send_current_queue(self, ctx):
         """Sends the current queue."""

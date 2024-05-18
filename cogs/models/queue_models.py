@@ -177,7 +177,7 @@ class Group:
 
 
 class Queue:
-    def __init__(self, groups: list, server_id, channel_id, locked=False):
+    def __init__(self, groups: list[Group], server_id, channel_id, locked=False):
         self.groups = groups
         self.server_id = server_id
         self.channel_id = channel_id
