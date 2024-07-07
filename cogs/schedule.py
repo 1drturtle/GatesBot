@@ -47,8 +47,8 @@ class Schedule(commands.Cog):
             x = "`" * 3
             msg = textwrap.dedent(
                 f"""{x}
-!scroll -one 4 -two 3 -three 2 -four 1 -five 1 -cantrip 2
-!tattoo -one 4 -two 3 -three 2 -four 1 -five 1 -cantrip 2
+!scroll -one 5 -two 4 -three 3 -four 3 -five 3 -cantrip 3
+!tattoo -one 5 -two 4 -three 3 -four 3 -five 3 -cantrip 3
 {x}
             """
             )
