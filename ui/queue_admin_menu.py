@@ -290,7 +290,7 @@ class GroupSelector(disnake.ui.StringSelect):
     def create_options(self):
         options = []
         for i, group in enumerate(self.queue.groups):
-            options.append(disnake.SelectOption(label=f"{i+1}. Rank {group.tier}"))
+            options.append(disnake.SelectOption(label=f"{i + 1}. Rank {group.tier}"))
         if not options:
             options = ["No queue groups."]
 
@@ -361,7 +361,7 @@ class GroupManagerUI(ManageUIParent):
         assigned = f"<@{self.group.assigned}>" if self.group.assigned else "No."
 
         embed = create_default_embed(interaction)
-        embed.title = f"GatesBot - Group #{self.group_num+1}"
+        embed.title = f"GatesBot - Group #{self.group_num + 1}"
         locked_emoji = "🔒 Locked" if self.group.locked else "🔓 Unlocked"
         embed.description = (
             f"**Rank:** {self.group.tier_str.replace('_', '')}\n"
@@ -390,7 +390,7 @@ class GroupManagerUI(ManageUIParent):
 
         await queue.update(self.bot, self.queue_db, serv.get_channel(self.channel_id))
         log.info(
-            f"[Queue] Group #{self.group_num+1} {'locked' if st else 'unlocked'} by {inter.author}."
+            f"[Queue] Group #{self.group_num + 1} {'locked' if st else 'unlocked'} by {inter.author}."
         )
         return await self.refresh_menu(inter)
 
@@ -409,13 +409,20 @@ class GroupManagerUI(ManageUIParent):
             self.bot.mdb["player_queue"], inter.guild
         )
 
+        g = gates_data.groups[self.group_num]
+        if g.assigned is not None:
+            return await inter.send(
+                "A DM is already assigned to this gate. Please assign via command if you wish to assign again.",
+                ephemeral=True,
+            )
+
         gates_data.groups[self.group_num].assigned = who.id
         await gates_data.db_save(self.queue_db)
 
         group = gates_data.groups[self.group_num]
 
         msg = (
-            f"Group {self.group_num+1} is yours, see above for details."
+            f"Group {self.group_num + 1} is yours, see above for details."
             f" Don't forget to submit your encounter in <#798247432743551067> once ready and claim once approved!"
             f" Kindly note that this is a **{len(group.players)} person Rank {group.tier_str}** "
             f"group and adjust your encounter as needed."
@@ -433,7 +440,7 @@ class GroupManagerUI(ManageUIParent):
             player.member = await inter.guild.fetch_member(player.member.id)
 
         embed2 = create_queue_embed(self.bot)
-        embed2.title = f"Information for Group #{self.group_num+1}"
+        embed2.title = f"Information for Group #{self.group_num + 1}"
         embed2.description = group.player_levels_str
         await ch.send(embed=embed2)
         await ch.send(
@@ -458,11 +465,13 @@ class GroupManagerUI(ManageUIParent):
         await self.bot.cogs["DMQueue"].update_queue()
 
         log.info(
-            f"[DM Queue] {inter.author} assigned Gate #{self.group_num+1} to {who}."
+            f"[DM Queue] {inter.author} assigned Gate #{self.group_num + 1} to {who}."
         )
 
         await self.refresh_menu(inter)
-        await inter.send(f"Gate #{self.group_num+1} assigned to {who}", ephemeral=True)
+        await inter.send(
+            f"Gate #{self.group_num + 1} assigned to {who}", ephemeral=True
+        )
 
 
 class DMSelector(disnake.ui.StringSelect):

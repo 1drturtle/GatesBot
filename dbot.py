@@ -107,6 +107,7 @@ async def on_ready():
 
     bot.ready_time = datetime.utcnow()
     bot.loop = asyncio.get_running_loop()
+    bot.c_data = {}
 
     if not bot.persistent_views_added:
         bot.add_view(PlayerQueueUI(bot, Queue))
