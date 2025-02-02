@@ -140,7 +140,7 @@ class DMQueue(commands.Cog):
         await ctx.send_help(self.dm)
 
     @dm.command(name="assign")
-    @has_role("Admin")
+    @has_role("Assistant")
     async def dm_assign(self, ctx, queue_num: int, group_num: int):
         """
         Assigns a DM to a group
