@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from datetime import timedelta
 
@@ -67,9 +69,7 @@ class CommandErrorHandler(commands.Cog):
             msg = str(error) or "Missing Unknown Required Argument"
             return await ctx.send(f"Error: {msg}")
 
-        elif isinstance(error, commands.BadArgument) or isinstance(
-            error, commands.BadUnionArgument
-        ):
+        elif isinstance(error, (commands.BadArgument, commands.BadUnionArgument)):
             msg = str(error) or "Unknown Bad Argument"
             return await ctx.send(f"Error: {msg}")
 
@@ -97,6 +97,7 @@ class CommandErrorHandler(commands.Cog):
         elif isinstance(error, discord.Forbidden):
             msg = str(error) or "Forbidden - Not allowed to perform this action."
             return await ctx.send(f"Error: {msg}")
+
         elif isinstance(error, commands.BadArgument):
             msg = str(error) or "Unknown invalid argument."
             return await ctx.send(f"Error: {msg}")
@@ -106,7 +107,7 @@ class CommandErrorHandler(commands.Cog):
                 await ctx.author.send(
                     f"{ctx.command} can not be used in Private Messages."
                 )
-            except:
+            except discord.HTTPException:
                 pass
 
         else:

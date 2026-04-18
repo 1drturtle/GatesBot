@@ -1,10 +1,13 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 import discord
 from discord.ext import commands
 
-from utils.constants import DATE_FORMAT, VERSION
-from utils.functions import create_default_embed, try_delete
+from common.constants import DATE_FORMAT, VERSION
+from common.discord_utils import try_delete
+from common.embeds import create_default_embed
 
 
 def time_to_readable(delta_uptime):

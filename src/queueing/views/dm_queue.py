@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import disnake
 
 
@@ -18,25 +20,21 @@ class DMQueueUI(disnake.ui.View):
     async def leave_button(
         self, button: disnake.ui.Button, inter: disnake.MessageInteraction
     ):
-        """
-        Attempt to leave the DM queue.
-        """
-
         await self.dm_db.update_one(
             {"_id": inter.author.id},
-            {
-                "$inc": {"dm_queue.signups": -1},
-            },
+            {"$inc": {"dm_queue.signups": -1}},
             upsert=True,
         )
 
-        try:
-            await self.db.delete_one({"_id": inter.author.id})
-        except:
+        result = await self.db.delete_one({"_id": inter.author.id})
+        if result.deleted_count == 0:
             return await inter.send(
-                "You were not in the DM queue, or an error occurred.", ephemeral=True
+                "You were not in the DM queue, or an error occurred.",
+                ephemeral=True,
             )
-        else:
-            await self.dm_cog.update_queue()
 
+        await self.dm_cog.update_queue()
         return await inter.send("You have left the DM queue.", ephemeral=True)
+
+
+__all__ = ["DMQueueUI"]

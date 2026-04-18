@@ -1,120 +1,26 @@
 import asyncio
-import logging
-import sys
-from datetime import datetime
+import datetime
 
-import discord
-import motor.motor_asyncio
-from discord.ext import commands
+from bot.bootstrap import COGS, build_bot, register_persistent_views
+from bot.logging_setup import configure_logging
+from common.settings import settings
+from common.discord_utils import try_delete
 
-import utils.config as config
-from cogs.models.queue_models import Queue
-from ui.dm_queue_menu import DMQueueUI
-from ui.queue_menu import PlayerQueueUI
-from ui.strike_queue_menu import StrikeQueueUI
-from utils.constants import DEBUG_SERVER
-from utils.functions import try_delete
-
-COGS = {
-    "cogs.util",
-    "jishaku",
-    "cogs.queue",
-    "cogs.placeholders",
-    "cogs.schedule",
-    "cogs.errors",
-    "cogs.admin",
-    "cogs.dm_queue",
-    "cogs.strike_queue",
-    "cogs.gate_owners",
-}
-
-
-async def get_prefix(client, message):
-    if not message.guild:
-        return commands.when_mentioned_or(config.PREFIX)(client, message)
-    guild_id = str(message.guild.id)
-    if guild_id in client.prefixes:
-        prefix = client.prefixes.get(guild_id, config.PREFIX)
-    else:
-        dbsearch = await client.mdb["prefixes"].find_one({"guild_id": guild_id})
-        if dbsearch is not None:
-            prefix = dbsearch.get("prefix", config.PREFIX)
-        else:
-            prefix = config.PREFIX
-        client.prefixes[guild_id] = prefix
-    return commands.when_mentioned_or(prefix)(client, message)
-
-
-class GatesBot(commands.Bot):
-    def __init__(self, command_prefix=get_prefix, desc: str = "", **options):
-        self.launch_time = datetime.utcnow()
-        self.ready_time: datetime | None = None
-        self._dev_id = config.DEV_ID
-        self.environment = config.ENVIRONMENT
-
-        self.loop = None
-
-        self.mongo_client = motor.motor_asyncio.AsyncIOMotorClient(config.MONGO_URL)
-        self.mdb = self.mongo_client[config.MONGO_DB]
-
-        self.prefixes = dict()
-        self.prefix = config.PREFIX
-
-        self.persistent_views_added = False
-
-        super(GatesBot, self).__init__(command_prefix, description=desc, **options)
-
-    @property
-    def dev_id(self):
-        return self._dev_id
-
-    @property
-    def uptime(self):
-        return datetime.utcnow() - self.launch_time
-
-
-intents = discord.Intents(guilds=True, members=True, messages=True, reactions=True, message_content=True)
-
-description = "Discord Bot made for The Gates D&D Server."
-
-bot = GatesBot(
-    desc=description,
-    intents=intents,
-    allowed_mentions=discord.AllowedMentions.none(),
-    test_guilds=[DEBUG_SERVER],
-)
-
-log_formatter = logging.Formatter("%(levelname)s | %(name)s: %(message)s")
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(log_formatter)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-logger.addHandler(handler)
-log = logging.getLogger("bot")
-
-# Make discord logs a bit quieter
-logging.getLogger("disnake.gateway").setLevel(logging.WARNING)
-logging.getLogger("disnake.client").setLevel(logging.WARNING)
-logging.getLogger("disnake.http").setLevel(logging.INFO)
+bot = build_bot()
+log = configure_logging()
 
 
 @bot.event
 async def on_ready():
-
-    bot.ready_time = datetime.utcnow()
+    bot.ready_time = datetime.datetime.now(datetime.timezone.utc)
     bot.loop = asyncio.get_running_loop()
-
-    if not bot.persistent_views_added:
-        bot.add_view(PlayerQueueUI(bot, Queue))
-        bot.add_view(DMQueueUI(bot))
-        bot.add_view(StrikeQueueUI(bot))
-        bot.persistent_views_added = True
+    register_persistent_views(bot)
 
     ready_message = (
         f"\n---------------------------------------------------\n"
         f"Bot Ready!\n"
         f"Logged in as {bot.user.name} (ID: {bot.user.id})\n"
-        f"Current Prefix: {config.PREFIX}\n"
+        f"Current Prefix: {settings.prefix}\n"
         f"---------------------------------------------------"
     )
     log.info(ready_message)
@@ -145,4 +51,4 @@ for cog in COGS:
     bot.load_extension(cog)
 
 if __name__ == "__main__":
-    bot.run(config.TOKEN)
+    bot.run(settings.token)

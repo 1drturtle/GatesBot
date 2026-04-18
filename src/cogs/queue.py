@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 import logging
 import random
@@ -9,16 +11,13 @@ import pendulum
 from discord.ext import commands
 from discord.ext import tasks
 
-import utils.constants as constants
-from cogs.models.queue_models import Player, Group, Queue
-from utils.checks import has_role
-from utils.functions import (
-    create_default_embed,
-    try_delete,
-    length_check,
-    check_level_role,
-    parse_player_class,
-)
+import common.constants as constants
+from common.checks import has_role
+from common.discord_utils import try_delete
+from common.embeds import create_default_embed
+from queueing.models import Group, Player, Queue
+from queueing.parsing import check_level_role, length_check, parse_player_class
+from queueing.repository import load_queue_for_guild
 
 line_re = re.compile(r"\*\*in line:*\*\*", re.IGNORECASE)
 
@@ -26,12 +25,7 @@ log = logging.getLogger(__name__)
 
 
 async def queue_from_guild(db, guild: discord.Guild) -> Queue:
-    queue_data = await db.find_one({"guild_id": guild.id})
-    if queue_data is None:
-        queue_data = {"groups": [], "server_id": guild.id, "channel_id": None}
-    queue = Queue.from_dict(guild, queue_data)
-    queue.groups.sort(key=lambda x: x.tier)
-    return queue
+    return await load_queue_for_guild(db, guild)
 
 
 class QueueChannel(commands.Cog):

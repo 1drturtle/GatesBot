@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import datetime
 import logging
@@ -9,17 +11,14 @@ import pendulum
 import pymongo
 from discord.ext import commands
 
-import utils.constants as constants
-from cogs.models.queue_models import Queue, Group
-from cogs.queue import queue_from_guild, length_check
-from utils.checks import has_role, has_any_role
-from utils.functions import (
-    create_queue_embed,
-    try_delete,
-    create_default_embed,
-    find_or_migrate_queue_message_id,
-)
-from ui.dm_queue_menu import DMQueueUI
+import common.constants as constants
+from common.checks import has_any_role, has_role
+from common.embeds import create_default_embed, create_queue_embed
+from queueing.models import Group, Queue
+from queueing.parsing import length_check
+from queueing.repository import load_queue_for_guild
+from queueing.services import replace_persistent_message, send_gate_assignment
+from queueing.views import DMQueueUI
 
 GateGroup = namedtuple("GateGroup", "gate claimed name")
 
@@ -122,31 +121,14 @@ class DMQueue(commands.Cog):
 
         embed = await self.generate_embed()
 
-        # delete old queue message if present
-        meta_key = f"dm_queue:{self.queue_channel_id}"
-        old_message_id = await find_or_migrate_queue_message_id(
+        await replace_persistent_message(
             channel=ch,
             meta_db=self.meta_db,
-            meta_key=meta_key,
+            meta_key=f"dm_queue:{self.queue_channel_id}",
             embed_title_prefix="DM Queue",
             bot_user_id=self.bot.user.id,
-        )
-        if old_message_id:
-            try:
-                old_msg = await ch.fetch_message(old_message_id)
-            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
-                old_msg = None
-            if old_msg is not None:
-                await try_delete(old_msg)
-
-        # send new
-        view = DMQueueUI(self.bot)
-
-        msg = await ch.send(embed=embed, view=view)
-        await self.meta_db.update_one(
-            {"_id": meta_key},
-            {"$set": {"message_id": msg.id}},
-            upsert=True,
+            embed=embed,
+            view=DMQueueUI(self.bot),
         )
 
     @commands.group(name="dm", invoke_without_command=True)
@@ -178,41 +160,19 @@ class DMQueue(commands.Cog):
         dm = dm_data[(queue_num - 1)]
         who = ctx.guild.get_member(dm.get("_id"))
 
-        gates_data: Queue = await queue_from_guild(
-            self.bot.mdb["player_queue"], ctx.guild
-        )
+        gates_data: Queue = await load_queue_for_guild(self.bot.mdb["player_queue"], ctx.guild)
         check = length_check(len(gates_data.groups), group_num)
         if check is not None:
             return await ctx.send(check)
 
         group = gates_data.groups[group_num - 1]
         gates_data.groups[group_num - 1].assigned = who.id
-        msg = (
-            f"Group {group_num} is yours, see above for details."
-            f" Don't forget to submit your encounter in <#798247432743551067> once ready and claim once approved!"
-            f" Kindly note that this is a **{len(group.players)} person Rank {group.tier_str}** "
-            f"group and adjust your encounter as needed."
-            f" Please react to this message if you are, indeed, claiming."
-            f" **__Please double-check your group number in <#773895672415649832> when claiming because it may have changed.__**"
-        )
-        embed = create_queue_embed(self.bot)
-        embed.title = "Gate Assignment"
-        embed.description = msg
-
-        group.players.sort(key=lambda x: x.member.display_name)
-
-        # update members
-        for player in group.players:
-            player.member = await ctx.guild.fetch_member(player.member.id)
-
-        embed2 = create_queue_embed(self.bot)
-        embed2.title = f"Information for Group #{group_num}"
-        embed2.description = group.player_levels_str
-        await ch.send(embed=embed2)
-        await ch.send(
-            f"{who.mention}",
-            embed=embed,
-            allowed_mentions=discord.AllowedMentions(users=True),
+        await send_gate_assignment(
+            bot=self.bot,
+            group=group,
+            group_number=group_num,
+            dm_member=who,
+            assignment_channel=ch,
         )
 
         analytics_data = {
@@ -393,10 +353,10 @@ class DMQueue(commands.Cog):
 
         try:
             gate = gates[gate_num - 1]
-        except IndexError:
+        except IndexError as err:
             raise commands.BadArgument(
                 f"Gate number must exist. See `{ctx.prefix}dm stats` for gate numbers."
-            )
+            ) from err
 
         claimed = int(pendulum.instance(gate.claimed).timestamp())
         embed.add_field(

@@ -9,9 +9,9 @@ import pendulum
 from discord.ext import commands
 from discord.ext import tasks
 
-from utils import constants as constants
-from utils.checks import has_role
-from utils.functions import create_default_embed
+import common.constants as constants
+from common.checks import has_role
+from common.embeds import create_default_embed
 
 log = logging.getLogger(__name__)
 
@@ -233,7 +233,20 @@ class Placeholders(commands.Cog):
             filter(lambda m: role in m.roles, s.members)
         )
 
-        final_msg = """Hi!\n\nYou've recently been pinged as "Inactive" since you have not signed up for a gate in at least 6 months.\n\nAs much as we'd love for you to stick around, we do have to enforce our server policies.\n\nIf you're ready to get back to playing, we'd appreciate it if you could re-read our rules for a refresher. Once done with that, instructions on how regain Player access are pinned in inactive-players!\n\nIf you're not ready, that's totally fine too! Unfortunately, that does mean we will have to remove you from the server. No worries though, if you haven't already, please add Aeslyn or Lentan as friends and we'd be happy to invite you back.\n\nIf we don't hear from you in 3 days, we will assume you're not interested anymore and we'll be cleaning up our inactive players."""
+        final_msg = (
+            'Hi!\n\nYou\'ve recently been pinged as "Inactive" since you have not '
+            "signed up for a gate in at least 6 months.\n\nAs much as we'd love "
+            "for you to stick around, we do have to enforce our server policies."
+            "\n\nIf you're ready to get back to playing, we'd appreciate it if you "
+            "could re-read our rules for a refresher. Once done with that, "
+            "instructions on how regain Player access are pinned in inactive-players!"
+            "\n\nIf you're not ready, that's totally fine too! Unfortunately, that "
+            "does mean we will have to remove you from the server. No worries "
+            "though, if you haven't already, please add Aeslyn or Lentan as friends "
+            "and we'd be happy to invite you back.\n\nIf we don't hear from you in "
+            "3 days, we will assume you're not interested anymore and we'll be "
+            "cleaning up our inactive players."
+        )
 
         # send FINAL msg to inactive users
         count = 0
@@ -242,7 +255,7 @@ class Placeholders(commands.Cog):
         for member in inactive_members:
             try:
                 await member.send(final_msg)
-            except discord.HTTPException | discord.Forbidden:
+            except (discord.HTTPException, discord.Forbidden):
                 fail.append(member)
             else:
                 success.append(member)
@@ -330,7 +343,7 @@ class Placeholders(commands.Cog):
                         " all you would need to do is shoot one of us admins a message (Lentan or Aeslyn)"
                         " and we'll get you right back in!"
                     )
-                except discord.HTTPException | discord.Forbidden:
+                except (discord.HTTPException, discord.Forbidden):
                     await mod_log_channel.send(
                         f"Could not send inactive spiel to {member.mention} via DM."
                     )

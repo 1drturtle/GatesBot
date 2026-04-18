@@ -3,9 +3,9 @@ import logging
 import discord
 from discord.ext import commands
 
-import utils.constants as constants
-from utils.checks import has_role
-from utils.functions import create_default_embed
+import common.constants as constants
+from common.checks import has_role
+from common.embeds import create_default_embed
 
 log = logging.getLogger(__name__)
 
@@ -31,12 +31,17 @@ class GateOwners(commands.Cog):
                 continue
 
             name = gate["name"]
-            ic_c = discord.utils.find(lambda c: c.name == f"{name}-ic", guild.channels)
+            ic_c = discord.utils.find(
+                lambda channel, gate_name=name: channel.name == f"{gate_name}-ic",
+                guild.channels,
+            )
             ooc_c = discord.utils.find(
-                lambda c: c.name == f"{name}-ooc", guild.channels
+                lambda channel, gate_name=name: channel.name == f"{gate_name}-ooc",
+                guild.channels,
             )
             dice_c = discord.utils.find(
-                lambda c: c.name == f"{name}-dice", guild.channels
+                lambda channel, gate_name=name: channel.name == f"{gate_name}-dice",
+                guild.channels,
             )
             if not all((ic_c, ooc_c, dice_c)):
                 log.error("[GateTracker] Could not find a channel for " + name)

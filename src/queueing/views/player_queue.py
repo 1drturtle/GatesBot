@@ -1,11 +1,14 @@
+from __future__ import annotations
+
 import datetime
 import logging
 
 import discord
 import disnake
 
-import utils.constants as constants
-from ui.queue_admin_menu import PlayerQueueManageUI
+import common.constants as constants
+from queueing.repository import load_queue_for_guild
+from queueing.views.admin import PlayerQueueManageUI
 
 log = logging.getLogger(__name__)
 
@@ -46,12 +49,7 @@ class PlayerQueueUI(disnake.ui.View):
         )
 
     async def queue_from_guild(self, db, guild: discord.Guild):
-        queue_data = await db.find_one({"guild_id": guild.id})
-        if queue_data is None:
-            queue_data = {"groups": [], "server_id": guild.id, "channel_id": None}
-        queue = self.queue_type.from_dict(guild, queue_data)
-        queue.groups.sort(key=lambda x: x.tier)
-        return queue
+        return await load_queue_for_guild(db, guild, queue_type=self.queue_type)
 
     @disnake.ui.button(
         label="Leave",
@@ -61,9 +59,6 @@ class PlayerQueueUI(disnake.ui.View):
     async def leave_button(
         self, button: disnake.ui.Button, inter: disnake.MessageInteraction
     ):
-        """
-        Attempt to leave the queue.
-        """
         queue = await self.queue_from_guild(self.queue_db, inter.guild)
 
         group_index = queue.in_queue(inter.author.id)
@@ -73,30 +68,25 @@ class PlayerQueueUI(disnake.ui.View):
                 ephemeral=True,
             )
 
-        # Pop the Player from the Group and Update!
         queue.groups[group_index[0]].players.pop(group_index[1])
         await queue.update(
             self.bot, self.queue_db, inter.guild.get_channel(self.channel_id)
         )
 
-        # update analytics
-        data = {
-            "$set": {
-                "user_id": inter.author.id,
-            },
-            "$inc": {"gate_signup_count": -1},
-        }
-
+        data = {"$set": {"user_id": inter.author.id}, "$inc": {"gate_signup_count": -1}}
         await self.old_player_data_db.update_one(
-            {"user_id": inter.author.id}, data, upsert=True
+            {"user_id": inter.author.id},
+            data,
+            upsert=True,
         )
-
         await self.mark_db.update_one(
-            {"_id": inter.author.id}, {"$set": {"marked": False}}
+            {"_id": inter.author.id},
+            {"$set": {"marked": False}},
         )
 
         return await inter.send(
-            f"You have been removed from group #{group_index[0] + 1}", ephemeral=True
+            f"You have been removed from group #{group_index[0] + 1}",
+            ephemeral=True,
         )
 
     @disnake.ui.button(
@@ -110,15 +100,15 @@ class PlayerQueueUI(disnake.ui.View):
 
         if not (
             inter.author.id == self.bot.owner_id
-            or any(True for r in inter.author.roles if r.name == "Assistant")
+            or any(True for role in inter.author.roles if role.name == "Assistant")
         ):
             return await inter.send(
-                "You are not allowed to use this function.", ephemeral=True
+                "You are not allowed to use this function.",
+                ephemeral=True,
             )
 
         view = PlayerQueueManageUI(self.bot, queue)
         embed = await view.generate_menu(inter)
-
         return await inter.send(embed=embed, view=view, ephemeral=True)
 
     @disnake.ui.button(
@@ -127,20 +117,18 @@ class PlayerQueueUI(disnake.ui.View):
         custom_id="gatesbot_playerqueue_claim",
     )
     async def claim_button(self, button, inter: disnake.MessageInteraction):
-
-        # Do not allow from non-DMs
         if not (
             inter.author.id == self.bot.owner_id
-            or any(True for r in inter.author.roles if r.name == "DM")
+            or any(True for role in inter.author.roles if role.name == "DM")
         ):
             return await inter.send(
-                "You are not allowed to use this function.", ephemeral=True
+                "You are not allowed to use this function.",
+                ephemeral=True,
             )
 
         await inter.response.defer()
 
         queue = await self.queue_from_guild(self.queue_db, inter.guild)
-        # Get our Gate from the DB
         gate = await self.gate_list_db.find_one({"owner": inter.author.id})
         if gate is None:
             return await inter.send(
@@ -148,24 +136,24 @@ class PlayerQueueUI(disnake.ui.View):
                 ephemeral=True,
             )
 
-        # Find a Marked group.
-        group_i = None
-        for i, g in enumerate(queue.groups):
-            if g.assigned == inter.author.id:
-                group_i = i
+        group_index = None
+        for index, group in enumerate(queue.groups):
+            if group.assigned == inter.author.id:
+                group_index = index
 
-        if group_i is None:
+        if group_index is None:
             return await inter.send(
-                "You do not currently have a Gate assigned.", ephemeral=True
+                "You do not currently have a Gate assigned.",
+                ephemeral=True,
             )
 
         serv = self.bot.get_guild(self.server_id)
-        popped = queue.groups.pop(group_i)
+        popped = queue.groups.pop(group_index)
 
-        # update marks
-        player_ids = [p.member.id for p in popped.players]
+        player_ids = [player.member.id for player in popped.players]
         await self.mark_db.update_many(
-            {"_id": {"$in": player_ids}}, {"$set": {"marked": False}}
+            {"_id": {"$in": player_ids}},
+            {"$set": {"marked": False}},
         )
 
         summons_channel_id = (
@@ -174,23 +162,20 @@ class PlayerQueueUI(disnake.ui.View):
             else constants.DEBUG_SUMMONS_CHANNEL
         )
 
-        # update analytics
-
-        # reinforcements analytics
-        # dm_analytics
         raw_gate = popped.to_dict()
         raw_gate["gate_name"] = gate["name"]
         raw_gate["claimed_date"] = datetime.datetime.utcnow()
         raw_gate.pop("position")
 
-        # dm_assign_analytics
-        _assign_analytics_data = await self.dm_assign_analytics.find(
-            sort=[("summonDate", -1)], limit=1, filter={"claimed": False}
+        assign_analytics = await self.dm_assign_analytics.find(
+            sort=[("summonDate", -1)],
+            limit=1,
+            filter={"claimed": False},
         ).to_list(length=None)
-        if _assign_analytics_data:
-            _assign_analytics_data = _assign_analytics_data[0]
+        if assign_analytics:
+            assign_item = assign_analytics[0]
             await self.dm_assign_analytics.update_one(
-                {"_id": _assign_analytics_data["_id"]},
+                {"_id": assign_item["_id"]},
                 {"$set": {"claimed": True}, "$currentDate": {"claimDate": True}},
             )
 
@@ -203,7 +188,6 @@ class PlayerQueueUI(disnake.ui.View):
             },
         )
 
-        # old analytics - overview
         gate_analytics_data = {
             "gate_name": gate["name"],
             "date_summoned": datetime.datetime.utcnow(),
@@ -211,14 +195,12 @@ class PlayerQueueUI(disnake.ui.View):
             "tier": popped.tier,
             "levels": {},
         }
-
-        # old analytics - player
         for player in popped.players:
             analytics_data = {
                 "$set": {"user_id": player.member.id, "last_gate_name": gate["name"]},
                 "$currentDate": {"last_gate_summoned": True},
                 "$inc": {
-                    f"gates_summoned_per_level.{str(player.total_level)}": 1,
+                    f"gates_summoned_per_level.{player.total_level}": 1,
                     "gate_summon_count": 1,
                 },
             }
@@ -226,44 +208,45 @@ class PlayerQueueUI(disnake.ui.View):
                 int(gate_analytics_data["levels"].get(str(player.total_level), "0")) + 1
             )
             await self.old_player_data_db.update_one(
-                {"user_id": player.member.id}, analytics_data, upsert=True
+                {"user_id": player.member.id},
+                analytics_data,
+                upsert=True,
             )
 
         await self.old_gates_db.insert_one(gate_analytics_data)
 
-        # set up summons and assignment channels
-
         summons_ch = serv.get_channel(summons_channel_id)
-        assignments_ch = serv.get_channel(874795661198000208)
+        assignments_ch = serv.get_channel(constants.GATE_ASSIGNMENTS_CHANNEL)
         assignments_str = (
             f"<#{assignments_ch.id}>"
             if assignments_ch is not None
             else "#gate-assignments-v2"
         )
 
-        # sort players by display name
-        out_players = sorted(popped.players, key=lambda x: x.member.display_name)
+        out_players = sorted(popped.players, key=lambda player: player.member.display_name)
 
-        # assign player roles (currently disbaled)
-        # gate_role = discord.utils.find(lambda x: x.name == f'{gate_name.title()} Gate', serv.roles)
-        #
-        # for player in out_players:
-        #     await player.member.add_roles(gate_role, reason='Automatic Gate Assignment')
-
-        # send summon msg
         if summons_ch is not None:
-            msg = ", ".join([p.mention for p in out_players]) + "\n"
+            msg = ", ".join([player.mention for player in out_players]) + "\n"
             msg += (
                 f'Welcome to the {gate["name"].lower().title()} Gate! Head to {assignments_str}'
                 f' and grab the {gate["emoji"]} from the list and head over to the gate!\n'
                 f"Claimed by {inter.author.mention}"
             )
             await summons_ch.send(
-                msg, allowed_mentions=discord.AllowedMentions(users=True)
+                msg,
+                allowed_mentions=discord.AllowedMentions(users=True),
             )
+
+        await queue.update(self.bot, self.queue_db, inter.guild.get_channel(self.channel_id))
+
         log.info(
-            f"[Queue] Gate #{group_i} ({gate['name']} gate) claimed by {inter.author}."
+            f'[Queue] {inter.author} claimed {gate["name"].title()} Gate for '
+            f'{", ".join(player.member.display_name for player in out_players)}.'
+        )
+        return await inter.send(
+            f"You have claimed Group #{group_index + 1}.",
+            ephemeral=True,
         )
 
-        await queue.update(self.bot, self.queue_db, serv.get_channel(self.channel_id))
-        return await inter.send("Gate has been claimed", ephemeral=True)
+
+__all__ = ["PlayerQueueUI"]

@@ -5,8 +5,8 @@ import pendulum
 from discord.ext import commands
 import textwrap
 
-from utils.config import ENVIRONMENT
-from utils.constants import SCHEDULE_CHANNEL, SCHEDULE_CHANNEL_DEBUG
+from common.constants import SCHEDULE_CHANNEL, SCHEDULE_CHANNEL_DEBUG
+from common.settings import settings
 
 log = logging.getLogger(__name__)
 
@@ -17,7 +17,9 @@ class Schedule(commands.Cog):
         self.task = None
         self.running = False
         self.channel_id = (
-            SCHEDULE_CHANNEL_DEBUG if ENVIRONMENT == "testing" else SCHEDULE_CHANNEL
+            SCHEDULE_CHANNEL_DEBUG
+            if settings.environment == "testing"
+            else SCHEDULE_CHANNEL
         )
 
     @commands.Cog.listener(name="on_ready")

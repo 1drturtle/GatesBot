@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 
@@ -5,15 +7,11 @@ import discord
 import pymongo
 from discord.ext import commands
 
-import utils.constants as constants
-from utils.checks import has_role
-from utils.functions import (
-    create_queue_embed,
-    try_delete,
-    create_default_embed,
-    find_or_migrate_queue_message_id,
-)
-from ui.strike_queue_menu import StrikeQueueUI
+import common.constants as constants
+from common.checks import has_role
+from common.embeds import create_default_embed, create_queue_embed
+from queueing.services import replace_persistent_message
+from queueing.views import StrikeQueueUI
 
 log = logging.getLogger(__name__)
 
@@ -117,31 +115,14 @@ class StrikeQueue(commands.Cog):
 
         embed = await self.generate_embed()
 
-        # delete old queue message if present
-        meta_key = f"strike_queue:{self.queue_channel_id}"
-        old_message_id = await find_or_migrate_queue_message_id(
+        await replace_persistent_message(
             channel=ch,
             meta_db=self.meta_db,
-            meta_key=meta_key,
+            meta_key=f"strike_queue:{self.queue_channel_id}",
             embed_title_prefix="Strike Team Queue",
             bot_user_id=self.bot.user.id,
-        )
-        if old_message_id:
-            try:
-                old_msg = await ch.fetch_message(old_message_id)
-            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
-                old_msg = None
-            if old_msg is not None:
-                await try_delete(old_msg)
-
-        # send new
-        view = StrikeQueueUI(self.bot)
-
-        msg = await ch.send(embed=embed, view=view)
-        await self.meta_db.update_one(
-            {"_id": meta_key},
-            {"$set": {"message_id": msg.id}},
-            upsert=True,
+            embed=embed,
+            view=StrikeQueueUI(self.bot),
         )
 
     @commands.group(name="strike", invoke_without_command=True)
