@@ -22,11 +22,7 @@ class Placeholders(commands.Cog):
         self.placeholder_db = bot.mdb["placeholder_events"]
         self.settings_db = bot.mdb["placeholder-settings"]
         self.active_db = bot.mdb["active_users"]
-        self.server_id = (
-            constants.GATES_SERVER
-            if self.bot.environment != "testing"
-            else constants.DEBUG_SERVER
-        )
+        self.server_id = constants.GATES_SERVER if self.bot.environment != "testing" else constants.DEBUG_SERVER
         self.db_task = self.run_placeholders.start()
         self.inactive_listener = self.check_inactive.start()
 
@@ -53,15 +49,11 @@ class Placeholders(commands.Cog):
         # get the member
         member = message.guild.get_member(message.author.id)
         if member is None:
-            log.info(
-                f"could not find member info for user {message.author.name}#{message.author.discriminator}"
-            )
+            log.info(f"could not find member info for user {message.author.name}#{message.author.discriminator}")
             return
 
         # stop if they don't have the role
-        if not discord.utils.find(
-            lambda r: r.name == "Placeholder Notifications", member.roles
-        ):
+        if not discord.utils.find(lambda r: r.name == "Placeholder Notifications", member.roles):
             return
 
         # stop if the channel is wrong
@@ -69,12 +61,7 @@ class Placeholders(commands.Cog):
             return
 
         # stop if there's no placeholder:
-        if not any(
-            [
-                x in message.content.lower()
-                for x in ["*ph*", "*placeholder*", "_ph_", "_placeholder_"]
-            ]
-        ):
+        if not any([x in message.content.lower() for x in ["*ph*", "*placeholder*", "_ph_", "_placeholder_"]]):
             return
 
         # register the placeholder in the database
@@ -94,18 +81,13 @@ class Placeholders(commands.Cog):
         utc_now = datetime.datetime.now(datetime.timezone.utc)
         log.debug("running placeholder loop!")
         for document in await cursor.to_list(length=None):
-            setting = await self.settings_db.find_one(
-                {"user_id": document["author_id"]}
-            )
+            setting = await self.settings_db.find_one({"user_id": document["author_id"]})
             setting = setting.get("hours", 1) if setting else 1
 
             if (
-                document["message_date"].replace(tzinfo=datetime.timezone.utc)
-                + datetime.timedelta(hours=setting)
+                document["message_date"].replace(tzinfo=datetime.timezone.utc) + datetime.timedelta(hours=setting)
             ) < utc_now:
-                await self.placeholder_db.delete_one(
-                    {"message_id": document["message_id"]}
-                )
+                await self.placeholder_db.delete_one({"message_id": document["message_id"]})
                 await self.run_placeholder_reminder(document, setting)
 
     async def run_placeholder_reminder(self, placeholder_data: dict, hours: int = 1):
@@ -117,9 +99,7 @@ class Placeholders(commands.Cog):
         if not channel or not member:
             return None
 
-        log.info(
-            f"[Placeholder] running placeholder for {member.display_name} in #{channel.name}"
-        )
+        log.info(f"[Placeholder] running placeholder for {member.display_name} in #{channel.name}")
 
         try:
             message = await channel.fetch_message(placeholder_data["message_id"])
@@ -128,10 +108,7 @@ class Placeholders(commands.Cog):
 
         # stop if the message is gone or the placeholder is done
         if message is None or not any(
-            [
-                x in message.content.lower()
-                for x in ["*ph*", "*placeholder*", "_ph_", "_placeholder_"]
-            ]
+            [x in message.content.lower() for x in ["*ph*", "*placeholder*", "_ph_", "_placeholder_"]]
         ):
             return None
 
@@ -154,7 +131,7 @@ class Placeholders(commands.Cog):
         await self.bot.wait_until_ready()
 
     @commands.command(name="updatetime")
-    async def placeholder_update_setting(self, ctx, hours: int = None):
+    async def placeholder_update_setting(self, ctx, hours: int | None = None):
         """
         Sets the amount of hours to wait before sending a placeholder notification. If no argument is specified,
         shows the current setting.
@@ -170,27 +147,23 @@ class Placeholders(commands.Cog):
             else:
                 db_result = db_result["hours"]
             embed.description = (
-                f"The current setting is to send a reminder after {db_result} hour"
-                f'{"s" if db_result != 1 else ""}.'
+                f"The current setting is to send a reminder after {db_result} hour{'s' if db_result != 1 else ''}."
             )
             return await ctx.send(embed=embed)
 
         if hours < 1:
             raise commands.BadArgument("`hours` must be greater or equal to one.")
 
-        await self.settings_db.update_one(
-            {"user_id": ctx.author.id}, {"$set": {"hours": hours}}, upsert=True
-        )
+        await self.settings_db.update_one({"user_id": ctx.author.id}, {"$set": {"hours": hours}}, upsert=True)
         embed.title = "Placeholder settings updated!"
         embed.description = (
-            f"The current setting is now to send a reminder after {hours} hour"
-            f'{"s" if hours != 1 else ""}.'
+            f"The current setting is now to send a reminder after {hours} hour{'s' if hours != 1 else ''}."
         )
 
         return await ctx.send(embed=embed)
 
     @commands.group(name="inactive", invoke_without_command=True)
-    @commands.check_any(commands.is_owner(), has_role("Admin"))
+    @commands.check_any(commands.is_owner(), has_role("Admin"))  # pyright: ignore[reportArgumentType]
     async def inactive(self, ctx):
         """Shows inactive users and their last Queue sign-up."""
         q = self.bot.cogs["QueueChannel"]
@@ -204,7 +177,7 @@ class Placeholders(commands.Cog):
         for x in inactive_members:
             data = await self.active_db.find_one({"_id": x.id})
             data = (
-                f'<t:{pendulum.instance(data.get("last_signup")).int_timestamp}:R>'
+                f"<t:{pendulum.instance(data.get('last_signup')).int_timestamp}:R>"
                 if data and data.get("last_signup")
                 else "Unknown"
             )
@@ -229,9 +202,7 @@ class Placeholders(commands.Cog):
         s = self.bot.get_guild(q.server_id)
         role = s.get_role(constants.INACTIVE_ROLE_ID)
 
-        inactive_members: List[disnake.Member] = list(
-            filter(lambda m: role in m.roles, s.members)
-        )
+        inactive_members: List[disnake.Member] = list(filter(lambda m: role in m.roles, s.members))
 
         final_msg = (
             'Hi!\n\nYou\'ve recently been pinged as "Inactive" since you have not '
@@ -266,23 +237,16 @@ class Placeholders(commands.Cog):
         if success:
             e.add_field("Success", value="\n".join(m.mention for m in success))
         if fail:
-            e.add_field(
-                "Message Failed to Send", value="\n".join(m.mention for m in fail)
-            )
+            e.add_field("Message Failed to Send", value="\n".join(m.mention for m in fail))
         e.description = f"Report for {count} inactive users."
 
         await ctx.send(embed=e)
 
     @inactive.command(name="dm")
-    @commands.check_any(has_role("Admin"), commands.is_owner())
+    @commands.check_any(has_role("Admin"), commands.is_owner())  # pyright: ignore[reportArgumentType]
     async def inactive_dms(self, ctx):
         out = ""
-        data = (
-            await self.bot.mdb["dm_analytics"]
-            .find()
-            .sort("dm_claims.last_claim")
-            .to_list(None)
-        )
+        data = await self.bot.mdb["dm_analytics"].find().sort("dm_claims.last_claim").to_list(None)
         q = self.bot.cogs["QueueChannel"]
         serv = self.bot.get_guild(q.server_id)
         for item in data:
@@ -310,28 +274,32 @@ class Placeholders(commands.Cog):
         inactive_role = s.get_role(constants.INACTIVE_ROLE_ID)
         player_role = discord.utils.find(lambda r: r.name == "Player", s.roles)
         member_role = discord.utils.find(lambda r: r.name == "Member", s.roles)
-        mod_log_channel = s.get_channel(797678485078016000)
+
+        if not inactive_role or not player_role or not member_role:
+            log.warning("Could not load a role for inactive check")
+            return
+
+        mod_log_channel: discord.TextChannel = s.get_channel(797678485078016000)  # pyright: ignore[reportAssignmentType]
+        if not mod_log_channel:
+            log.warning("Could not load inactive mod log channel")
+            return
 
         # six months ago
-        old = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(
-            days=30 * 6
-        )
+        old = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=30 * 6)
 
         data = await self.active_db.find({"last_signup": {"$lte": old}}).to_list(None)
         user_ids = [x["_id"] for x in data]
 
         # convert into users
-        members = [s.get_member(user_id) for user_id in user_ids]
-        members: List[discord.Member] = list(filter(lambda x: x is not None, members))
+        members_raw = [s.get_member(user_id) for user_id in user_ids]
+        members: List[discord.Member] = [member for member in members_raw if member is not None]
 
         # add Inactive Role & Member Role, Remove Player Role
         count = 0
         for member in members:
             if not discord.utils.find(lambda r: r.id == inactive_role.id, member.roles):
                 # change roles
-                await member.add_roles(
-                    inactive_role, member_role, reason="User is inactive"
-                )
+                await member.add_roles(inactive_role, member_role, reason="User is inactive")
                 await member.remove_roles(player_role, reason="User is inactive")
                 # send the spiel
                 try:
@@ -344,19 +312,15 @@ class Placeholders(commands.Cog):
                         " and we'll get you right back in!"
                     )
                 except (discord.HTTPException, discord.Forbidden):
-                    await mod_log_channel.send(
-                        f"Could not send inactive spiel to {member.mention} via DM."
-                    )
+                    await mod_log_channel.send(f"Could not send inactive spiel to {member.mention} via DM.")
                 else:
-                    await mod_log_channel.send(
-                        f"Inactive spiel sent to {member.mention} via DM."
-                    )
+                    await mod_log_channel.send(f"Inactive spiel sent to {member.mention} via DM.")
                 count += 1
 
         log.info(f"[Activity] {count} users given Inactive role... Check Complete")
 
     @commands.command(name="removeemojis")
-    @commands.check_any(commands.is_owner(), has_role("Admin"))
+    @commands.check_any(commands.is_owner(), has_role("Admin"))  # pyright: ignore[reportArgumentType]
     async def remove_old_emojis(self, ctx, channel: disnake.TextChannel):
 
         removed_reactions = 0
@@ -371,9 +335,7 @@ class Placeholders(commands.Cog):
                             removed_reactions += 1
                             await reaction.remove(user)
 
-        await ctx.send(
-            f"Removed {removed_reactions} reactions from {removed_messages} messages in {channel.jump_url}"
-        )
+        await ctx.send(f"Removed {removed_reactions} reactions from {removed_messages} messages in {channel.jump_url}")
 
     @check_inactive.before_loop
     async def before_inactive_placeholders(self):

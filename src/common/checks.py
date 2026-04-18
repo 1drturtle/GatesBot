@@ -13,7 +13,7 @@ def has_role(role_name: str):
             raise commands.NoPrivateMessage()
         result = discord.utils.find(
             lambda role: role.name.lower() == role_name.lower(),
-            ctx.author.roles,
+            ctx.author.roles,  # pyright: ignore[reportAttributeAccessIssue]
         )
         if result is None and ctx.author.id != ctx.bot.owner_id:
             raise commands.MissingRole(role_name)
@@ -30,13 +30,11 @@ def has_any_role(role_names: Iterable[str]):
             raise commands.NoPrivateMessage()
         result = discord.utils.find(
             lambda role: role.name.lower() in lowered_role_names,
-            ctx.author.roles,
+            ctx.author.roles,  # pyright: ignore[reportAttributeAccessIssue]
         )
         if result is None and ctx.author.id != ctx.bot.owner_id:
             joined_names = ", ".join(lowered_role_names)
-            raise commands.CheckFailure(
-                f"Missing any of {joined_names} roles to run this command."
-            )
+            raise commands.CheckFailure(f"Missing any of {joined_names} roles to run this command.")
         return True
 
     return commands.check(predicate)

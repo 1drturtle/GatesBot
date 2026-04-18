@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TypedDict
 
 
@@ -30,6 +31,11 @@ class GroupDocument(TypedDict, total=False):
     position: int | None
     locked: bool
     assigned: int | None
+
+
+class GateDocument(GroupDocument, total=False):
+    gate_name: str
+    claimed_date: datetime
 
 
 class QueueDocument(TypedDict):

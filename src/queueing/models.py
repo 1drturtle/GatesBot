@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 import discord
 
 from common.constants import GROUP_SIZE, ROLE_MARKERS, TIERS
-from common.embeds import create_queue_embed
 from queueing.documents import (
     ClassLevelDocument,
     GroupDocument,
@@ -105,9 +103,7 @@ class Group:
 
     def to_dict(self) -> GroupDocument:
         return {
-            "players": [
-                player.to_dict() for player in self.players if player is not None
-            ],
+            "players": [player.to_dict() for player in self.players if player is not None],
             "tier": self.tier,
             "position": self.position,
             "locked": self.locked,
@@ -126,13 +122,16 @@ class Group:
     @classmethod
     def from_dict(cls, guild: discord.Guild, data: GroupDocument) -> Group:
         players: list[Player] = []
-        for item in data["players"]:
+        for item in data.get("players", []):
             player = Player.from_dict(guild, item)
             if player is not None:
                 players.append(player)
+        tier = data.get("tier")
+        if tier is None:
+            tier = players[0].tier if players else 1
         return cls(
             players=players,
-            tier=data["tier"],
+            tier=tier,
             position=data.get("position"),
             locked=data.get("locked", False),
             assigned=data.get("assigned"),
@@ -157,22 +156,8 @@ class Group:
         tiers = sorted({player.tier for player in self.players})
         return "__" + "/".join(map(str, tiers)) + "__"
 
-    async def generate_field(self, bot: Any) -> str:
-        mark_db = bot.mdb["player_marked"]
-        names: list[str] = []
-        for player in self.players:
-            mark_info = await mark_db.find_one({"_id": player.member.id}) or {}
-            postfix = (
-                f'{"*" if mark_info.get("marked", False) else ""}{mark_info.get("custom", "")}'
-            )
-            names.append(f"{player.mention}{postfix}")
-        return discord.utils.escape_markdown(", ".join(names))
-
     def __repr__(self) -> str:
-        return (
-            f"<Group players={self.players!r}, tier={self.tier!r}, "
-            f"position={self.position!r}>"
-        )
+        return f"<Group players={self.players!r}, tier={self.tier!r}, position={self.position!r}>"
 
 
 @dataclass(slots=True)
@@ -200,52 +185,6 @@ class Queue:
             "locked": self.locked,
         }
 
-    async def generate_embed(self, bot: Any) -> discord.Embed:
-        embed = create_queue_embed(bot)
-        self.groups.sort(key=lambda group: group.tier)
-        embed.title = "Gate Sign-Up List" + (" 🔒" if self.locked else "")
-
-        for index, group in enumerate(self.groups):
-            locked = " 🔒" if group.locked else ""
-            embed.add_field(
-                name=f"{index + 1}. Rank {group.tier}{locked}",
-                value=await group.generate_field(bot),
-                inline=False,
-            )
-
-        return embed
-
-    async def update(
-        self,
-        bot: Any,
-        db: Any,
-        channel: discord.TextChannel,
-    ) -> discord.Message:
-        from queueing.services import replace_persistent_message
-        from queueing.views import PlayerQueueUI
-
-        self.groups = [group for group in self.groups if group.players]
-        view = PlayerQueueUI(bot, self.__class__)
-        embed = await self.generate_embed(bot)
-        message = await replace_persistent_message(
-            channel=channel,
-            meta_db=bot.mdb["queue_meta"],
-            meta_key=f"player_queue:{self.channel_id}",
-            embed_title_prefix="Gate Sign-Up List",
-            bot_user_id=bot.user.id,
-            embed=embed,
-            view=view,
-        )
-        await self.db_save(db)
-        return message
-
-    async def db_save(self, db: Any) -> None:
-        await db.update_one(
-            {"guild_id": self.server_id, "channel_id": self.channel_id},
-            {"$set": self.to_dict()},
-            upsert=True,
-        )
-
     def in_queue(self, member_id: int) -> tuple[int, int] | None:
         for group_index, group in enumerate(self.groups):
             for player_index, player in enumerate(group.players):
@@ -271,7 +210,4 @@ class Queue:
         return sum(len(group.players) for group in self.groups)
 
     def __repr__(self) -> str:
-        return (
-            f"<Queue groups={self.groups!r}, server_id={self.server_id!r}, "
-            f"channel_id={self.channel_id!r}>"
-        )
+        return f"<Queue groups={self.groups!r}, server_id={self.server_id!r}, channel_id={self.channel_id!r}>"

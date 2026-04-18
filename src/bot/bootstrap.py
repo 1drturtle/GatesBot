@@ -10,7 +10,6 @@ from discord.ext import commands
 from bot.prefixes import get_prefix
 from common.constants import DEBUG_SERVER
 from common.settings import settings
-from queueing.models import Queue
 from queueing.views import DMQueueUI, PlayerQueueUI, StrikeQueueUI
 
 COGS = {
@@ -33,7 +32,7 @@ class GatesBot(commands.Bot):
         self.ready_time: datetime | None = None
         self._dev_id = settings.dev_id
         self.environment = settings.environment
-        self.loop = None
+        self.loop = None  # type: ignore
 
         self.mongo_client = motor.motor_asyncio.AsyncIOMotorClient(settings.mongo_url)
         self.mdb = self.mongo_client[settings.mongo_db]
@@ -73,7 +72,7 @@ def register_persistent_views(bot: GatesBot) -> None:
     if bot.persistent_views_added:
         return
 
-    bot.add_view(PlayerQueueUI(bot, Queue))
+    bot.add_view(PlayerQueueUI(bot))
     bot.add_view(DMQueueUI(bot))
     bot.add_view(StrikeQueueUI(bot))
     bot.persistent_views_added = True

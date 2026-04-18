@@ -29,8 +29,8 @@ class Utility(commands.Cog):
         now = datetime.now()
         message = await ctx.send("Ping!")
         await message.edit(
-            content=f"Pong!\nBot: {int(ctx.bot.latency*1000)} ms\n"
-            f"Discord: {int((datetime.now() - now).total_seconds()*1000)} ms"
+            content=f"Pong!\nBot: {int(ctx.bot.latency * 1000)} ms\n"
+            f"Discord: {int((datetime.now() - now).total_seconds() * 1000)} ms"
         )
 
     @commands.command(name="uptime", aliases=["up", "alive"])
@@ -85,14 +85,13 @@ class Utility(commands.Cog):
         embed = create_default_embed(ctx)
         color_converter = commands.ColourConverter()
         try:
-            color: discord.Colour = await color_converter.convert(ctx, color)
+            converted_color: discord.Colour = await color_converter.convert(ctx, color)
         except commands.BadArgument:
             return await ctx.send(
-                "You have provided an invalid color. See the link in the help page for a list of "
-                "possible colors."
+                "You have provided an invalid color. See the link in the help page for a list of possible colors."
             )
-        embed.title = str(hex(color.value))
-        embed.colour = color
+        embed.title = str(hex(converted_color.value))
+        embed.colour = converted_color
 
         await ctx.send(embed=embed)
 
@@ -103,9 +102,7 @@ class Utility(commands.Cog):
         """
         embed = create_default_embed(ctx)
         embed.title = "GatesBot Source"
-        embed.description = (
-            "[Click here for the Source Code.](https://github.com/1drturtle/GatesBot)"
-        )
+        embed.description = "[Click here for the Source Code.](https://github.com/1drturtle/GatesBot)"
         embed.set_thumbnail(url=str(self.bot.user.avatar_url))
         await ctx.send(embed=embed)
 
@@ -119,9 +116,7 @@ class Utility(commands.Cog):
         guild = ctx.guild
         embed.title = f"{guild.name} - Server Information"
         general_info = (
-            f"**ID:** {guild.id}\n"
-            f"**Owner:** {guild.owner.mention}\n"
-            f"Created: {guild.created_at.strftime(DATE_FORMAT)}"
+            f"**ID:** {guild.id}\n**Owner:** {guild.owner.mention}\nCreated: {guild.created_at.strftime(DATE_FORMAT)}"
         )
         embed.add_field(name="General Info", value=general_info, inline=False)
         emoji_x = 0
@@ -132,8 +127,8 @@ class Utility(commands.Cog):
                 break
             emojis.append(emoji)
         emoji_info = (
-            f'{len(guild.emojis)} emoji{"s" if len(guild.emojis) != 1 else ""}\n'
-            f'{",".join([str(e) for e in emojis])} {"..." if emoji_x >= 10 else ""}'
+            f"{len(guild.emojis)} emoji{'s' if len(guild.emojis) != 1 else ''}\n"
+            f"{','.join([str(e) for e in emojis])} {'...' if emoji_x >= 10 else ''}"
         )
         embed.add_field(name="Emojis", value=emoji_info, inline=False)
         bots = [member for member in guild.members if member.bot]

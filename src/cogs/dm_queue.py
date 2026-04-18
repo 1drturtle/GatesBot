@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import datetime
 import logging
 from collections import namedtuple
@@ -8,16 +7,13 @@ from collections import namedtuple
 import discord
 import disnake
 import pendulum
-import pymongo
 from discord.ext import commands
 
 import common.constants as constants
 from common.checks import has_any_role, has_role
-from common.embeds import create_default_embed, create_queue_embed
-from queueing.models import Group, Queue
-from queueing.parsing import length_check
-from queueing.repository import load_queue_for_guild
-from queueing.services import replace_persistent_message, send_gate_assignment
+from common.embeds import create_default_embed
+from queueing.models import Group
+from queueing.services import get_queue_services
 from queueing.views import DMQueueUI
 
 GateGroup = namedtuple("GateGroup", "gate claimed name")
@@ -28,29 +24,20 @@ log = logging.getLogger(__name__)
 class DMQueue(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.services = get_queue_services(bot)
+        self.dm_service = self.services.dm_queue_service
+        self.presentation = self.services.presentation_service
 
-        self.queue_channel_id = (
-            constants.DM_QUEUE_CHANNEL_DEBUG
-            if self.bot.environment == "testing"
-            else constants.DM_QUEUE_CHANNEL
-        )
-        self.assign_id = (
-            constants.DM_QUEUE_ASSIGNMENT_CHANNEL_DEBUG
-            if self.bot.environment == "testing"
-            else constants.DM_QUEUE_ASSIGNMENT_CHANNEL
-        )
-        self.server_id = (
-            constants.GATES_SERVER
-            if self.bot.environment != "testing"
-            else constants.DEBUG_SERVER
-        )
+        self.queue_channel_id = self.services.config.dm_queue_channel_id
+        self.assign_id = self.services.config.dm_queue_assignment_channel_id
+        self.server_id = self.services.config.server_id
 
         self.db = self.bot.mdb["dm_queue"]
         self.meta_db = self.bot.mdb["queue_meta"]
         self.dm_db = self.bot.mdb["dm_analytics"]
         self.assign_data_db = self.bot.mdb["dm_assign_analytics"]
 
-    async def cog_check(self, ctx):
+    async def cog_check(self, ctx):  # type: ignore
         if not ctx.guild:
             return False
         if ctx.guild.id == constants.GATES_SERVER:
@@ -69,20 +56,10 @@ class DMQueue(commands.Cog):
 
         content = discord.utils.remove_markdown(msg.content.lower())
         rank_content = content.replace("ready: ", "").strip()
-
-        content = {
-            "$set": {"ranks": rank_content, "msg": msg.id},
-            "$currentDate": {"readyOn": True},
-        }
-
-        await self.db.update_one({"_id": msg.author.id}, content, upsert=True)
-        await self.dm_db.update_one(
-            {"_id": msg.author.id},
-            {
-                "$inc": {"dm_queue.signups": 1},
-                "$currentDate": {"dm_queue.last_signup": True},
-            },
-            upsert=True,
+        await self.dm_service.signup_from_message(
+            message=msg,
+            text=rank_content,
+            view_factory=lambda: DMQueueUI(self.bot),
         )
 
         try:
@@ -93,42 +70,15 @@ class DMQueue(commands.Cog):
         await self.update_queue()
 
     async def generate_embed(self):
-
         guild = self.bot.get_guild(self.server_id)
-
-        data = await self.db.find().sort("readyOn", pymongo.ASCENDING).to_list(None)
-        embed = create_queue_embed(self.bot)
-
-        out = []
-
-        embed.title = "DM Queue"
-
-        for i, item in enumerate(data):
-            member = guild.get_member(item.get("_id"))
-            cur = f'**#{i + 1}.** {member.mention} - {item.get("ranks")}'
-            out.append(cur)
-
-        embed.description = "\n".join(out)
-
-        return embed
+        entries = await self.services.dm_queue_repository.list_entries()
+        return await self.presentation.build_dm_queue_embed(guild=guild, entries=entries)
 
     async def update_queue(self):
-
-        await asyncio.sleep(1)
-
         guild = self.bot.get_guild(self.server_id)
-        ch = guild.get_channel(self.queue_channel_id)
-
-        embed = await self.generate_embed()
-
-        await replace_persistent_message(
-            channel=ch,
-            meta_db=self.meta_db,
-            meta_key=f"dm_queue:{self.queue_channel_id}",
-            embed_title_prefix="DM Queue",
-            bot_user_id=self.bot.user.id,
-            embed=embed,
-            view=DMQueueUI(self.bot),
+        await self.dm_service.refresh_queue_message(
+            guild=guild,
+            view_factory=lambda: DMQueueUI(self.bot),
         )
 
     @commands.group(name="dm", invoke_without_command=True)
@@ -144,55 +94,18 @@ class DMQueue(commands.Cog):
         `queue_num` - The DM's queue number
         `group_num` - The group's number (from the base queue)
         """
-
-        ch = ctx.guild.get_channel(self.assign_id)
-
-        dm_data = await self.db.find().sort("readyOn", pymongo.ASCENDING).to_list(None)
-        if len(dm_data) == 0:
-            return await ctx.send("No DMs currently in DM queue.")
-        if queue_num > (size := len(dm_data)):
-            return await ctx.send(
-                f"Invalid DM Queue number. Must be less than or equal to {size}"
-            )
-        elif queue_num < 1:
-            return await ctx.send("Invalid DM Queue number. Must be at least 1.")
-
-        dm = dm_data[(queue_num - 1)]
-        who = ctx.guild.get_member(dm.get("_id"))
-
-        gates_data: Queue = await load_queue_for_guild(self.bot.mdb["player_queue"], ctx.guild)
-        check = length_check(len(gates_data.groups), group_num)
-        if check is not None:
-            return await ctx.send(check)
-
-        group = gates_data.groups[group_num - 1]
-        gates_data.groups[group_num - 1].assigned = who.id
-        await send_gate_assignment(
-            bot=self.bot,
-            group=group,
+        result = await self.dm_service.assign_dm_to_group(
+            guild=ctx.guild,
+            summoner=ctx.author,
             group_number=group_num,
-            dm_member=who,
-            assignment_channel=ch,
+            queue_number=queue_num,
+            view_factory=lambda: DMQueueUI(self.bot),
+            allow_reassignment=True,
         )
-
-        analytics_data = {
-            "summoner": ctx.author.id,
-            "dm": who.id,
-            "gate_data": group.to_dict(),
-            "claimed": False,
-            "summonDate": datetime.datetime.utcnow(),
-        }
-        await self.assign_data_db.insert_one(analytics_data)
-        await self.dm_db.update_one(
-            {"_id": who.id}, {"$inc": {"dm_queue.assignments": 1}}, upsert=True
-        )
-
-        await self.db.delete_one({"_id": who.id})
-        await self.update_queue()
-
-        log.info(
-            f"[DM Queue] {ctx.author} assigned Gate #{group_num} to {who} (DM #{queue_num})"
-        )
+        if not result.success:
+            return await ctx.send(result.message)
+        who = ctx.guild.get_member(result.assigned_member_id)
+        log.info(f"[DM Queue] {ctx.author} assigned Gate #{group_num} to {who} (DM #{queue_num})")
 
     @dm.command(name="update")
     @has_role("DM")
@@ -203,14 +116,12 @@ class DMQueue(commands.Cog):
         embed.description = "If you are in the DM queue, your message has been updated."
         embed.add_field(name="New Message", value=rank_content)
 
-        try:
-            await self.db.update_one(
-                {"_id": ctx.author.id}, {"$set": {"ranks": rank_content}}
-            )
-        except:
-            pass
-        else:
-            await self.update_queue()
+        await self.dm_service.update_member(
+            guild=ctx.guild,
+            member_id=ctx.author.id,
+            text=rank_content,
+            view_factory=lambda: DMQueueUI(self.bot),
+        )
 
         await ctx.send(embed=embed, delete_after=10)
 
@@ -228,16 +139,14 @@ class DMQueue(commands.Cog):
         """Leave the DM queue."""
         embed = create_default_embed(ctx)
         embed.title = "DM Queue Left."
-        embed.description = (
-            "If you were previously in the DM queue, you have been removed from it."
-        )
+        embed.description = "If you were previously in the DM queue, you have been removed from it."
 
-        try:
-            await self.db.delete_one({"_id": ctx.author.id})
-        except:
-            pass
-        else:
-            await self.update_queue()
+        await self.dm_service.leave_member(
+            guild=ctx.guild,
+            member_id=ctx.author.id,
+            view_factory=lambda: DMQueueUI(self.bot),
+            adjust_signup_count=True,
+        )
 
         await ctx.send(embed=embed, delete_after=10)
 
@@ -247,16 +156,14 @@ class DMQueue(commands.Cog):
         """Remove a member from the DM queue."""
         embed = create_default_embed(ctx)
         embed.title = "Member Removed from Queue."
-        embed.description = (
-            f"{to_remove.mention} has been removed from queue, if they were in it."
-        )
+        embed.description = f"{to_remove.mention} has been removed from queue, if they were in it."
 
-        try:
-            await self.db.delete_one({"_id": to_remove.id})
-        except:
-            pass
-        else:
-            await self.update_queue()
+        await self.dm_service.leave_member(
+            guild=ctx.guild,
+            member_id=to_remove.id,
+            view_factory=lambda: DMQueueUI(self.bot),
+            adjust_signup_count=False,
+        )
 
         await ctx.send(embed=embed, delete_after=10)
 
@@ -284,10 +191,10 @@ class DMQueue(commands.Cog):
 
     @dm.group(name="stats", invoke_without_command=True)
     @has_any_role(["DM", "Assistant"])
-    async def dm_stats(self, ctx, who: discord.Member = None):
+    async def dm_stats(self, ctx, who: discord.Member | None = None):
         """Get DM stats."""
-        if who is None:
-            who = ctx.author
+        who = who or ctx.author
+
         embed = create_default_embed(
             ctx,
             title=f"{who.display_name}'s DM Stats",
@@ -319,8 +226,7 @@ class DMQueue(commands.Cog):
         recent_gates = await self.load_recent_gates(who, existing_data=dm_data)
 
         gate_string = "\n".join(
-            f"{i+1}. Rank {x.gate.tier}, {len(x.gate.players)} players"
-            for i, x in enumerate(recent_gates)
+            f"{i + 1}. Rank {x.gate.tier}, {len(x.gate.players)} players" for i, x in enumerate(recent_gates)
         )
         descriptor = (
             f"For more info, run `{ctx.prefix}dm stats gate # [user mention]`, "
@@ -337,11 +243,10 @@ class DMQueue(commands.Cog):
 
     @dm_stats.command(name="gate")
     @has_any_role(["DM", "Assistant"])
-    async def dm_stats_specific(self, ctx, gate_num: int, who: discord.Member = None):
+    async def dm_stats_specific(self, ctx, gate_num: int, dm_user: discord.Member | None = None):
         """Get the stats on a specific gate number."""
 
-        if who is None:
-            who = ctx.author
+        who: discord.Member = dm_user or ctx.author
 
         embed = create_default_embed(
             ctx,
@@ -354,9 +259,7 @@ class DMQueue(commands.Cog):
         try:
             gate = gates[gate_num - 1]
         except IndexError as err:
-            raise commands.BadArgument(
-                f"Gate number must exist. See `{ctx.prefix}dm stats` for gate numbers."
-            ) from err
+            raise commands.BadArgument(f"Gate number must exist. See `{ctx.prefix}dm stats` for gate numbers.") from err
 
         claimed = int(pendulum.instance(gate.claimed).timestamp())
         embed.add_field(
@@ -370,10 +273,9 @@ class DMQueue(commands.Cog):
 
     @dm_stats.command(name="dump")
     @has_any_role(["DM", "Assistant"])
-    async def dm_stats_dump(self, ctx, who: discord.Member = None):
+    async def dm_stats_dump(self, ctx, who: discord.Member | None = None):
 
-        if not who:
-            who = ctx.author
+        who = who or ctx.author
 
         dm_data = await self.dm_db.find_one({"_id": who.id})
 
@@ -399,7 +301,7 @@ class DMQueue(commands.Cog):
 
     @dm_stats.command(name="reinforcements")
     @has_any_role(["DM", "Assistant"])
-    async def dm_reinforcements_dump(self, ctx, who: discord.Member = None):
+    async def dm_reinforcements_dump(self, ctx, who: discord.Member | None = None):
 
         if who:
             data = (
@@ -420,16 +322,10 @@ class DMQueue(commands.Cog):
             raise commands.BadArgument("Could not find reinforcement data")
 
         pag = commands.Paginator()
-        pag.add_line(
-            f"Reinforcement Data Data for {who.display_name}"
-            if who
-            else "Reinforcement Data"
-        )
+        pag.add_line(f"Reinforcement Data Data for {who.display_name}" if who else "Reinforcement Data")
         pag.add_line("dm id, gate claimed date (utc), gate tier")
         for r in data:
-            pag.add_line(
-                f"{r['dm_id']},{r['gate_info']['claimed_date']},{r['gate_info']['tier']}"
-            )
+            pag.add_line(f"{r['dm_id']},{r['gate_info']['claimed_date']},{r['gate_info']['tier']}")
 
         for page in pag.pages:
             await ctx.send(page)
@@ -446,19 +342,12 @@ class DMQueue(commands.Cog):
         for item in data:
             member = ctx.guild.get_member(item["_id"])
             try:
-                timestamp = int(
-                    (
-                        item["dm_claims"].get("last_claim")
-                        - datetime.datetime(1970, 1, 1)
-                    ).total_seconds()
-                )
+                timestamp = int((item["dm_claims"].get("last_claim") - datetime.datetime(1970, 1, 1)).total_seconds())
             except (KeyError, IndexError):
                 continue
             molded_data.append((member, timestamp))
         molded_data = sorted(molded_data, key=lambda i: i[1])
-        embed.description = "\n".join(
-            [f"{i[0].mention}: <t:{i[1]}:R>" for i in molded_data]
-        )
+        embed.description = "\n".join([f"{i[0].mention}: <t:{i[1]}:R>" for i in molded_data])
 
         await ctx.send(embed=embed)
 

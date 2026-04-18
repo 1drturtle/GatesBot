@@ -45,8 +45,7 @@ async def check_level_role(player: Player) -> discord.Message | None:
     )
     if wrong_role is None:
         return await player.member.send(
-            "Hi! You currently do not have a level role. Grab one from near the top of"
-            " <#874436255088275496>!"
+            "Hi! You currently do not have a level role. Grab one from near the top of <#874436255088275496>!"
         )
 
     return await player.member.send(

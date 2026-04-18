@@ -27,9 +27,7 @@ class CommandErrorHandler(commands.Cog):
         """
 
         # This prevents any commands with local handlers being handled here in on_command_error.
-        if hasattr(ctx.command, "on_error") and getattr(
-            ctx.command, "no_handle", False
-        ):
+        if hasattr(ctx.command, "on_error") and getattr(ctx.command, "no_handle", False):
             return
 
         # This prevents any cogs with an overwritten cog_command_error being handled here.
@@ -82,14 +80,11 @@ class CommandErrorHandler(commands.Cog):
             cooldown = timedelta(seconds=int(error.retry_after))
             mins, seconds = divmod(cooldown.seconds, 60)
             time = (
-                f'{mins} minute{"s" if mins != 1 else ""}'
-                f'{" and " if mins > 0 else ", "}{seconds} second{"s" if seconds != 1 else ""}'
+                f"{mins} minute{'s' if mins != 1 else ''}"
+                f"{' and ' if mins > 0 else ', '}{seconds} second{'s' if seconds != 1 else ''}"
             )
             if ctx.command.parents:
-                msg += (
-                    f"\n`{ctx.prefix}{ctx.command.full_parent_name} {ctx.command.name}` is on cooldown for "
-                    f"{time}"
-                )
+                msg += f"\n`{ctx.prefix}{ctx.command.full_parent_name} {ctx.command.name}` is on cooldown for {time}"
             else:
                 msg += f"\n`{ctx.prefix}{ctx.command.name}` is on cooldown for {time}!"
             return await ctx.send(msg)
@@ -104,9 +99,7 @@ class CommandErrorHandler(commands.Cog):
 
         elif isinstance(error, commands.NoPrivateMessage):
             try:
-                await ctx.author.send(
-                    f"{ctx.command} can not be used in Private Messages."
-                )
+                await ctx.author.send(f"{ctx.command} can not be used in Private Messages.")
             except discord.HTTPException:
                 pass
 

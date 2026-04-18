@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 
 import discord
-import pymongo
 from discord.ext import commands
 
 import common.constants as constants
 from common.checks import has_role
-from common.embeds import create_default_embed, create_queue_embed
-from queueing.services import replace_persistent_message
+from common.embeds import create_default_embed
+from queueing.services import get_queue_services
 from queueing.views import StrikeQueueUI
 
 log = logging.getLogger(__name__)
@@ -21,22 +19,13 @@ ROLE = "Assistant"
 class StrikeQueue(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.services = get_queue_services(bot)
+        self.strike_service = self.services.strike_queue_service
+        self.presentation = self.services.presentation_service
 
-        self.queue_channel_id = (
-            constants.STRIKE_QUEUE_CHANNEL_DEBUG
-            if self.bot.environment == "testing"
-            else constants.STRIKE_QUEUE_CHANNEL
-        )
-        self.assign_id = (
-            constants.STRIKE_QUEUE_ASSIGNMENT_CHANNEL_DEBUG
-            if self.bot.environment == "testing"
-            else constants.STRIKE_QUEUE_ASSIGNMENT_CHANNEL
-        )
-        self.server_id = (
-            constants.GATES_SERVER
-            if self.bot.environment != "testing"
-            else constants.DEBUG_SERVER
-        )
+        self.queue_channel_id = self.services.config.strike_queue_channel_id
+        self.assign_id = self.services.config.strike_queue_assignment_channel_id
+        self.server_id = self.services.config.server_id
 
         self.db = self.bot.mdb["strike_queue"]
         self.meta_db = self.bot.mdb["queue_meta"]
@@ -44,7 +33,7 @@ class StrikeQueue(commands.Cog):
         self.data_db = self.bot.mdb["queue_analytics"]
         self.r_db = self.bot.mdb["reinforcement_analytics"]
 
-    async def cog_check(self, ctx):
+    async def cog_check(self, ctx):  # pyright: ignore[reportIncompatibleMethodOverride]
         if not ctx.guild:
             return False
         if ctx.guild.id == constants.GATES_SERVER:
@@ -63,13 +52,11 @@ class StrikeQueue(commands.Cog):
 
         content = discord.utils.remove_markdown(msg.content.lower())
         msg_content = content.replace("ready: ", "").strip()
-
-        content = {
-            "$set": {"content": msg_content, "msg": msg.id},
-            "$currentDate": {"readyOn": True},
-        }
-
-        await self.db.update_one({"_id": msg.author.id}, content, upsert=True)
+        await self.strike_service.signup_from_message(
+            message=msg,
+            text=msg_content,
+            view_factory=lambda: StrikeQueueUI(self.bot),
+        )
 
         # old_roles_data = await self.data_db.find_one(
         #     {'user_id': msg.author.id},
@@ -87,42 +74,15 @@ class StrikeQueue(commands.Cog):
         await self.update_queue()
 
     async def generate_embed(self):
-
         guild = self.bot.get_guild(self.server_id)
-
-        data = await self.db.find().sort("readyOn", pymongo.ASCENDING).to_list(None)
-        embed = create_queue_embed(self.bot)
-
-        out = []
-
-        embed.title = "Strike Team Queue"
-
-        for i, item in enumerate(data):
-            member = guild.get_member(item.get("_id"))
-            cur = f'**#{i + 1}.** {member.mention} - {item.get("content").title()}'
-            out.append(cur)
-
-        embed.description = "\n".join(out)
-
-        return embed
+        entries = await self.services.strike_queue_repository.list_entries()
+        return await self.presentation.build_strike_queue_embed(guild=guild, entries=entries)
 
     async def update_queue(self):
-
-        await asyncio.sleep(1)
-
         guild = self.bot.get_guild(self.server_id)
-        ch = guild.get_channel(self.queue_channel_id)
-
-        embed = await self.generate_embed()
-
-        await replace_persistent_message(
-            channel=ch,
-            meta_db=self.meta_db,
-            meta_key=f"strike_queue:{self.queue_channel_id}",
-            embed_title_prefix="Strike Team Queue",
-            bot_user_id=self.bot.user.id,
-            embed=embed,
-            view=StrikeQueueUI(self.bot),
+        await self.strike_service.refresh_queue_message(
+            guild=guild,
+            view_factory=lambda: StrikeQueueUI(self.bot),
         )
 
     @commands.group(name="strike", invoke_without_command=True)
@@ -132,92 +92,21 @@ class StrikeQueue(commands.Cog):
 
     @strike.command(name="assign")
     @has_role("DM")
-    async def strike_assign(
-        self, ctx, queue_nums: commands.Greedy[int], gate_name: str
-    ):
+    async def strike_assign(self, ctx, queue_nums: commands.Greedy[int], gate_name: str):
         """
         Assigns a Strike member to a group
         `queue_num` - The Strike member(s) queue number(s). You can assign multiple members at once.
         `gate_name` - The gate's name to assist.
         """
-        ch = ctx.guild.get_channel(self.assign_id)
-
-        queue_data = (
-            await self.db.find().sort("readyOn", pymongo.ASCENDING).to_list(None)
+        result = await self.strike_service.assign_strike_team(
+            guild=ctx.guild,
+            queue_numbers=list(queue_nums),
+            gate_name=gate_name,
+            view_factory=lambda: StrikeQueueUI(self.bot),
         )
-
-        dms = []
-
-        for queue_num in queue_nums:
-            if len(queue_data) == 0:
-                return await ctx.send(
-                    "No Strike Team members currently in Strike Team queue."
-                )
-            if queue_num > (size := len(queue_data)):
-                return await ctx.send(
-                    f"Invalid Strike Team Queue number ({queue_num})."
-                    f" Must be less than or equal to {size}"
-                )
-            elif queue_num < 1:
-                return await ctx.send(
-                    f"Invalid Strike Team Queue number ({queue_num}). Must be at least 1."
-                )
-
-            dms.append(queue_data[(queue_num - 1)])
-
-        people = [ctx.guild.get_member(dm.get("_id")) for dm in dms]
-
-        gate_data = await self.gate_db.find_one({"name": gate_name.lower()})
-        if gate_data is None:
-            return await ctx.send(
-                f"{gate_name} does not exist, please try again with a valid gate name.",
-                delete_after=5,
-            )
-        gate_name = gate_data.get("name")
-
-        msg = (
-            f'{" ".join([p.mention for p in people])}\n'
-            f"{gate_name.title()} Gate is in need of Strike Team reinforcements!"
-            f' Head to <#874795661198000208> and grab the {gate_data.get("emoji")}'
-            f" from the list and head over to the gate!"
-        )
-
-        await ch.send(msg, allowed_mentions=discord.AllowedMentions(users=True))
-
-        for p in people:
-            await self.data_db.update_one(
-                {"_id": p.id}, {"$set": {"last_strike": gate_name}}
-            )
-            # role = discord.utils.find(lambda r: r.name == f'{gate_name.title()} Gate', ctx.guild.roles)
-            # if role:
-            #     await p.add_roles(role, reason='Strike Queue Signup, adding role.')
-
-        # reinforcement analytics
-
-        dm_info = await self.bot.mdb["dm_analytics"].find_one(
-            {"_id": gate_data.get("owner", None)}
-        )
-        last_gate = dm_info["dm_gates"][-1]
-
-        await self.r_db.insert_one(
-            {
-                "type": "strike_team",
-                "user_ids": [p.id for p in people],
-                "dm_id": gate_data["owner"],
-                "gate_name": gate_name.lower(),
-                "gate_info": last_gate,
-            }
-        )
-
-        for person in dms:
-            await self.db.delete_one({"_id": person.get("_id")})
-
-        await self.update_queue()
-
-        log.info(
-            f'[Strike Queue] {ctx.author} summoned {", ".join(p.display_name for p in people)} to'
-            f" {gate_name.title()} Gate."
-        )
+        if not result.success:
+            return await ctx.send(result.message, delete_after=5)
+        log.info(f"[Strike Queue] {ctx.author} assigned strike team for {gate_name}.")
 
     @strike.command(name="update")
     @has_role(ROLE)
@@ -225,19 +114,15 @@ class StrikeQueue(commands.Cog):
         """Update your Strike Team queue entry."""
         embed = create_default_embed(ctx)
         embed.title = "Strike Team Queue Updated."
-        embed.description = (
-            "If you are in the Strike Team queue, your message has been updated."
-        )
+        embed.description = "If you are in the Strike Team queue, your message has been updated."
         embed.add_field(name="New Message", value=rank_content)
 
-        try:
-            await self.db.update_one(
-                {"_id": ctx.author.id}, {"$set": {"content": rank_content}}
-            )
-        except:
-            pass
-        else:
-            await self.update_queue()
+        await self.strike_service.update_member(
+            guild=ctx.guild,
+            member_id=ctx.author.id,
+            text=rank_content,
+            view_factory=lambda: StrikeQueueUI(self.bot),
+        )
 
         await ctx.send(embed=embed, delete_after=10)
 
@@ -257,12 +142,11 @@ class StrikeQueue(commands.Cog):
         embed.title = "Strike Team Queue Left."
         embed.description = "If you were previously in the Strike Team queue, you have been removed from it."
 
-        try:
-            await self.db.delete_one({"_id": ctx.author.id})
-        except:
-            pass
-        else:
-            await self.update_queue()
+        await self.strike_service.leave_member(
+            guild=ctx.guild,
+            member_id=ctx.author.id,
+            view_factory=lambda: StrikeQueueUI(self.bot),
+        )
 
         await ctx.send(embed=embed, delete_after=10)
 
@@ -272,16 +156,13 @@ class StrikeQueue(commands.Cog):
         """Remove a member from the Strike Queue."""
         embed = create_default_embed(ctx)
         embed.title = "User Removed from Queue."
-        embed.description = (
-            f"{to_remove.mention} has been removed from queue, if they were in it."
-        )
+        embed.description = f"{to_remove.mention} has been removed from queue, if they were in it."
 
-        try:
-            await self.db.delete_one({"_id": to_remove.id})
-        except:
-            pass
-        else:
-            await self.update_queue()
+        await self.strike_service.leave_member(
+            guild=ctx.guild,
+            member_id=to_remove.id,
+            view_factory=lambda: StrikeQueueUI(self.bot),
+        )
 
         await ctx.send(embed=embed, delete_after=10)
 

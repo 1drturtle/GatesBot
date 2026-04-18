@@ -16,11 +16,7 @@ class Schedule(commands.Cog):
         self.bot = bot
         self.task = None
         self.running = False
-        self.channel_id = (
-            SCHEDULE_CHANNEL_DEBUG
-            if settings.environment == "testing"
-            else SCHEDULE_CHANNEL
-        )
+        self.channel_id = SCHEDULE_CHANNEL_DEBUG if settings.environment == "testing" else SCHEDULE_CHANNEL
 
     @commands.Cog.listener(name="on_ready")
     async def ready_listener(self):
@@ -55,15 +51,12 @@ class Schedule(commands.Cog):
             )
             await channel.send(
                 "<@&773895151008874518> - don't forget to restock tattoos "
-                "and scrolls via `!scroll` and `!tattoo` in <#813448793965068328>!\n"
-                + msg,
+                "and scrolls via `!scroll` and `!tattoo` in <#813448793965068328>!\n" + msg,
                 allowed_mentions=discord.AllowedMentions(roles=True),
             )
 
         else:
-            log.error(
-                f"could not find channel with id {self.channel_id}. skipping message."
-            )
+            log.error(f"could not find channel with id {self.channel_id}. skipping message.")
 
 
 def setup(bot):

@@ -47,35 +47,30 @@ class Admin(commands.Cog):
 
     # ---- Server Owner Commands ----
 
-    @commands.command(
-        name="prefix", description="Changes the Bot's Prefix. Must have Manage Server."
-    )
+    @commands.command(name="prefix", description="Changes the Bot's Prefix. Must have Manage Server.")
     @commands.check_any(
-        commands.has_guild_permissions(manage_guild=True), commands.is_owner()
+        commands.has_guild_permissions(manage_guild=True),  # type: ignore
+        commands.is_owner(),  # type: ignore
     )
     @commands.guild_only()
-    async def change_prefix(self, ctx, to_change: str = None):
+    async def change_prefix(self, ctx, to_change: str = ""):
         """
         Changes the prefix for the current guild
 
         Can only be ran in a guild. If no prefix is specified, will show the current prefix.
         """
         guild_id = str(ctx.guild.id)
-        if to_change is None:
+        if not to_change:
             if guild_id in self.bot.prefixes:
                 prefix = self.bot.prefixes.get(guild_id, self.bot.prefix)
             else:
-                db_search = await self.bot.mdb["prefixes"].find_one(
-                    {"guild_id": guild_id}
-                )
+                db_search = await self.bot.mdb["prefixes"].find_one({"guild_id": guild_id})
                 if db_search is not None:
                     prefix = db_search.get("prefix", self.bot.prefix)
                 else:
                     prefix = self.bot.prefix
                 self.bot.prefixes[guild_id] = prefix
-            return await ctx.send(
-                f"No prefix specified to Change. Current Prefix: `{prefix}`"
-            )
+            return await ctx.send(f"No prefix specified to Change. Current Prefix: `{prefix}`")
         else:
             await ctx.bot.mdb["prefixes"].update_one(
                 {"guild_id": guild_id}, {"$set": {"prefix": to_change}}, upsert=True
