@@ -17,6 +17,8 @@ RUN apt-get update \
     && apt-get install --no-install-recommends -y procinfo \
     && rm -rf /var/lib/apt/lists/*
 
+WORKDIR /app
+
 COPY --from=builder /app/.venv /app/.venv
 COPY . .
 

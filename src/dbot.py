@@ -75,9 +75,7 @@ class GatesBot(commands.Bot):
         return datetime.utcnow() - self.launch_time
 
 
-intents = discord.Intents(
-    guilds=True, members=True, messages=True, reactions=True, message_content=True
-)
+intents = discord.Intents(guilds=True, members=True, messages=True, reactions=True, message_content=True)
 
 description = "Discord Bot made for The Gates D&D Server."
 
