@@ -1,2 +1,9 @@
-venv/
 .git/
+.github/
+.venv/
+venv/
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.codex/

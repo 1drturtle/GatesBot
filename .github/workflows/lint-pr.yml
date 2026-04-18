@@ -1,39 +1,52 @@
-name: Lint PR
+name: CI
 
-on: [pull_request]
+on:
+  pull_request:
+
+permissions:
+  contents: read
 
 jobs:
-  build:
+  lint:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v2
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.10.2"
+          python-version: "3.11"
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
 
-      - name: Cache pip
-        uses: actions/cache@v2
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-            ${{ runner.os }}-
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip setuptools wheel
-          pip install -r requirements.txt
-      - name: Setup flake8 annotations
-        uses: rbialon/flake8-annotations@v1
+        run: uv sync --frozen --only-group dev --no-install-project
 
-      - name: Lint with flake8
-        run: |
-          # stop the build if there are Python syntax errors or undefined names
-          git diff -u origin/master HEAD | flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --diff
-          # exit-zero treats all errors as warnings. We use a line length of 120
-          git diff -u origin/master HEAD | flake8 . --count --exit-zero --max-line-length=120 --statistics --diff
+      - name: Lint
+        run: uv run ruff check src
+
+      - name: Check formatting
+        run: uv run ruff format --check src
+
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build container image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          target: runtime
+          load: true
+          tags: gatesbot:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
