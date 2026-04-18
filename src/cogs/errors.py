@@ -1,11 +1,8 @@
 import logging
-import traceback
 from datetime import timedelta
 
 import discord
-import sentry_sdk
 from discord.ext import commands
-import utils.constants as constants
 
 
 log = logging.getLogger(__name__)
@@ -14,7 +11,6 @@ log = logging.getLogger(__name__)
 class CommandErrorHandler(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.error_channel_id = constants.ERROR_CHANNEL
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
@@ -115,7 +111,6 @@ class CommandErrorHandler(commands.Cog):
 
         else:
             raise error
-            # await self.bot.get_channel(self.error_channel_id).send(error)
 
 
 def setup(bot):

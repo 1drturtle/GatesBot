@@ -135,7 +135,7 @@ class StrikeQueue(commands.Cog):
                 await try_delete(old_msg)
 
         # send new
-        view = StrikeQueueUI(self.bot, self.__class__)
+        view = StrikeQueueUI(self.bot)
 
         msg = await ch.send(embed=embed, view=view)
         await self.meta_db.update_one(

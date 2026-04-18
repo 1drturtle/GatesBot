@@ -120,13 +120,6 @@ class Group:
         )
 
     @property
-    def player_levels(self):
-        out = {}
-        for player in self.players:
-            out[player.total_level] = out.get(player.total_level, 0) + 1
-        return out
-
-    @property
     def player_levels_str(self) -> str:
         out = "```diff\n"
         for player in self.players:
@@ -157,9 +150,6 @@ class Group:
         out = "__" + out + "__"
 
         return out
-
-    def assign_to(self, member):
-        self.assigned = member.id
 
     async def generate_field(self, bot):
         mark_db = bot.mdb["player_marked"]

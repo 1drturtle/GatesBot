@@ -1,35 +1,14 @@
 import disnake
-import discord
-import utils.constants as constants
 
 
 class StrikeQueueUI(disnake.ui.View):
-    def __init__(self, bot, queue_type, *args, **kwargs):
+    def __init__(self, bot):
         super().__init__(timeout=None)
         self.bot = bot
-        self.queue_type = queue_type
-        self.queue_channel_id = (
-            constants.STRIKE_QUEUE_CHANNEL_DEBUG
-            if self.bot.environment == "testing"
-            else constants.STRIKE_QUEUE_CHANNEL
-        )
-        self.assign_id = (
-            constants.STRIKE_QUEUE_ASSIGNMENT_CHANNEL_DEBUG
-            if self.bot.environment == "testing"
-            else constants.STRIKE_QUEUE_ASSIGNMENT_CHANNEL
-        )
-        self.server_id = (
-            constants.GATES_SERVER
-            if self.bot.environment != "testing"
-            else constants.DEBUG_SERVER
-        )
 
         self.strike_cog = self.bot.cogs["StrikeQueue"]
 
         self.db = self.bot.mdb["strike_queue"]
-        self.gate_db = bot.mdb["gate_list"]
-        self.data_db = self.bot.mdb["queue_analytics"]
-        self.r_db = self.bot.mdb["reinforcement_analytics"]
 
     @disnake.ui.button(
         label="Leave",

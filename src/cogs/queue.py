@@ -21,7 +21,6 @@ from utils.functions import (
 )
 
 line_re = re.compile(r"\*\*in line:*\*\*", re.IGNORECASE)
-player_class_regex = re.compile(r"(?P<subclass>(?:\w+ )*)(?P<class>\w+) (?P<level>\d+)")
 
 log = logging.getLogger(__name__)
 
@@ -35,20 +34,9 @@ async def queue_from_guild(db, guild: discord.Guild) -> Queue:
     return queue
 
 
-class ContextProxy:
-    def __init__(self, bot, message: discord.Message):
-        self.message = message
-        self.bot = bot
-        self.author = message.author
-
-
 class QueueChannel(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self._last_message = None
-
-        self.member_converter = commands.MemberConverter()
-        self.channel_converter = commands.TextChannelConverter()
         self.queue_db = bot.mdb["player_queue"]
         self.old_player_data_db = bot.mdb["queue_analytics"]
         self.old_gates_db = bot.mdb["gate_groups_analytics"]

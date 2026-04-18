@@ -140,7 +140,7 @@ class DMQueue(commands.Cog):
                 await try_delete(old_msg)
 
         # send new
-        view = DMQueueUI(self.bot, self.__class__)
+        view = DMQueueUI(self.bot)
 
         msg = await ch.send(embed=embed, view=view)
         await self.meta_db.update_one(

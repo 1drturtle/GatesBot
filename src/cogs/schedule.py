@@ -1,4 +1,3 @@
-import asyncio.exceptions
 import logging
 
 import discord

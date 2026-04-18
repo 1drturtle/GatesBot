@@ -8,9 +8,7 @@ import motor.motor_asyncio
 from discord.ext import commands
 
 import utils.config as config
-from cogs.dm_queue import DMQueue
 from cogs.models.queue_models import Queue
-from cogs.strike_queue import StrikeQueue
 from ui.dm_queue_menu import DMQueueUI
 from ui.queue_menu import PlayerQueueUI
 from ui.strike_queue_menu import StrikeQueueUI
@@ -50,7 +48,7 @@ async def get_prefix(client, message):
 class GatesBot(commands.Bot):
     def __init__(self, command_prefix=get_prefix, desc: str = "", **options):
         self.launch_time = datetime.utcnow()
-        self.ready_time = None
+        self.ready_time: datetime | None = None
         self._dev_id = config.DEV_ID
         self.environment = config.ENVIRONMENT
 
@@ -90,7 +88,7 @@ log_formatter = logging.Formatter("%(levelname)s | %(name)s: %(message)s")
 handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(log_formatter)
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG if config.ENVIRONMENT == "testing" else logging.INFO)
+logger.setLevel(logging.INFO)
 logger.addHandler(handler)
 log = logging.getLogger("bot")
 
@@ -105,12 +103,11 @@ async def on_ready():
 
     bot.ready_time = datetime.utcnow()
     bot.loop = asyncio.get_running_loop()
-    bot.c_data = {}
 
     if not bot.persistent_views_added:
         bot.add_view(PlayerQueueUI(bot, Queue))
-        bot.add_view(DMQueueUI(bot, DMQueue))
-        bot.add_view(StrikeQueueUI(bot, StrikeQueue))
+        bot.add_view(DMQueueUI(bot))
+        bot.add_view(StrikeQueueUI(bot))
         bot.persistent_views_added = True
 
     ready_message = (

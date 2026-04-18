@@ -10,28 +10,6 @@ from utils.functions import create_default_embed
 log = logging.getLogger(__name__)
 
 
-class Gate:
-    def __init__(
-        self,
-        name: str,
-        ic_channel: discord.TextChannel,
-        ooc_channel: discord.TextChannel,
-        dice_channel: discord.TextChannel,
-        dm: discord.Member,
-    ):
-        self.name = name
-        self.ic_channel = ic_channel
-        self.ooc_channel = ooc_channel
-        self.dice_channel = dice_channel
-        self.dm = dm
-
-    def __repr__(self):
-        return (
-            f"<Gate name={self.name}, ic={self.ic_channel.id}, ooc={self.ooc_channel.id}, "
-            f"dice={self.dice_channel.id}, owner={self.dm}>"
-        )
-
-
 class GateOwners(commands.Cog):
     def __init__(self, bot):
         self.bot = bot

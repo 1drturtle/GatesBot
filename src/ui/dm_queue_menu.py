@@ -1,33 +1,14 @@
 import disnake
-import discord
-import utils.constants as constants
 
 
 class DMQueueUI(disnake.ui.View):
-    def __init__(self, bot, queue_type, *args, **kwargs):
+    def __init__(self, bot):
         super().__init__(timeout=None)
         self.bot = bot
-        self.queue_type = queue_type
-        self.queue_channel_id = (
-            constants.DM_QUEUE_CHANNEL_DEBUG
-            if self.bot.environment == "testing"
-            else constants.DM_QUEUE_CHANNEL
-        )
-        self.assign_id = (
-            constants.DM_QUEUE_ASSIGNMENT_CHANNEL_DEBUG
-            if self.bot.environment == "testing"
-            else constants.DM_QUEUE_ASSIGNMENT_CHANNEL
-        )
-        self.server_id = (
-            constants.GATES_SERVER
-            if self.bot.environment != "testing"
-            else constants.DEBUG_SERVER
-        )
 
         self.dm_cog = self.bot.cogs["DMQueue"]
         self.db = self.bot.mdb["dm_queue"]
         self.dm_db = self.bot.mdb["dm_analytics"]
-        self.assign_data_db = self.bot.mdb["dm_assign_analytics"]
 
     @disnake.ui.button(
         label="Leave",

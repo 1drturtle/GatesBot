@@ -2,12 +2,6 @@ import discord
 from discord.ext import commands
 
 
-def channel_id_to_link(channel_id):
-    if isinstance(channel_id, discord.TextChannel):
-        channel_id = channel_id.id
-    return f"<#{channel_id}>"
-
-
 class Admin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot

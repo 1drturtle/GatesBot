@@ -13,8 +13,6 @@ from utils import constants as constants
 from utils.checks import has_role
 from utils.functions import create_default_embed
 
-PLACEHOLDER_POLL_TIME = 300
-
 log = logging.getLogger(__name__)
 
 

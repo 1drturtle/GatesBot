@@ -1,8 +1,6 @@
-import os
 from datetime import datetime
 
 import discord
-import psutil
 from discord.ext import commands
 
 from utils.constants import DATE_FORMAT, VERSION
@@ -19,7 +17,6 @@ def time_to_readable(delta_uptime):
 class Utility(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self._command_count = None
 
     @commands.command(name="ping")
     async def ping(self, ctx):
