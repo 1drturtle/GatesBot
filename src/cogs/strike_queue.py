@@ -7,7 +7,12 @@ from discord.ext import commands
 
 import utils.constants as constants
 from utils.checks import has_role
-from utils.functions import create_queue_embed, try_delete, create_default_embed
+from utils.functions import (
+    create_queue_embed,
+    try_delete,
+    create_default_embed,
+    find_or_migrate_queue_message_id,
+)
 from ui.strike_queue_menu import StrikeQueueUI
 
 log = logging.getLogger(__name__)
@@ -36,6 +41,7 @@ class StrikeQueue(commands.Cog):
         )
 
         self.db = self.bot.mdb["strike_queue"]
+        self.meta_db = self.bot.mdb["queue_meta"]
         self.gate_db = bot.mdb["gate_list"]
         self.data_db = self.bot.mdb["queue_analytics"]
         self.r_db = self.bot.mdb["reinforcement_analytics"]
@@ -111,23 +117,32 @@ class StrikeQueue(commands.Cog):
 
         embed = await self.generate_embed()
 
-        # find old & delete
-        history = await ch.history(limit=50).flatten()
-        for msg in history:
-            if len(msg.embeds) != 1 or msg.author.id != self.bot.user.id:
-                continue
-
-            old_embed = msg.embeds[0]
-
-            if old_embed.title != "Strike Team Queue":
-                continue
-
-            await try_delete(msg)
+        # delete old queue message if present
+        meta_key = f"strike_queue:{self.queue_channel_id}"
+        old_message_id = await find_or_migrate_queue_message_id(
+            channel=ch,
+            meta_db=self.meta_db,
+            meta_key=meta_key,
+            embed_title_prefix="Strike Team Queue",
+            bot_user_id=self.bot.user.id,
+        )
+        if old_message_id:
+            try:
+                old_msg = await ch.fetch_message(old_message_id)
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                old_msg = None
+            if old_msg is not None:
+                await try_delete(old_msg)
 
         # send new
         view = StrikeQueueUI(self.bot, self.__class__)
 
-        await ch.send(embed=embed, view=view)
+        msg = await ch.send(embed=embed, view=view)
+        await self.meta_db.update_one(
+            {"_id": meta_key},
+            {"$set": {"message_id": msg.id}},
+            upsert=True,
+        )
 
     @commands.group(name="strike", invoke_without_command=True)
     async def strike(self, ctx):

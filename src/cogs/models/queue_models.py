@@ -2,7 +2,7 @@ import discord
 
 from utils.constants import GROUP_SIZE, ROLE_MARKERS
 from utils.constants import TIERS as TIERS
-from utils.functions import create_queue_embed, try_delete
+from utils.functions import create_queue_embed, try_delete, find_or_migrate_queue_message_id
 from ui.queue_menu import PlayerQueueUI
 
 
@@ -219,38 +219,40 @@ class Queue:
 
         return embed
 
-    async def _get_message(self, channel):
-        history = await channel.history(limit=50).flatten()
-        out = None
-        for msg in history:
-            if len(msg.embeds) != 1:
-                continue
-
-            embed = msg.embeds[0]
-            if not embed.title.startswith("Gate Sign-Up List"):
-                continue
-
-            out = msg
-            break
-        return out
-
     async def update(self, bot, db, channel: discord.TextChannel) -> discord.Message:
-        # Find the old queue message and delete it
-        msg = await self._get_message(channel)
-        if msg is not None:
-            await try_delete(msg)
-
         # Remove empty groups
         self.groups = [group for group in self.groups if len(group.players) != 0]
 
-        # DB Commit
-        await self.db_save(db)
+        # Delete old queue message if present
+        meta_db = bot.mdb["queue_meta"]
+        meta_key = f"player_queue:{self.channel_id}"
+        old_message_id = await find_or_migrate_queue_message_id(
+            channel=channel,
+            meta_db=meta_db,
+            meta_key=meta_key,
+            embed_title_prefix="Gate Sign-Up List",
+            bot_user_id=bot.user.id,
+        )
+        if old_message_id:
+            try:
+                msg = await channel.fetch_message(old_message_id)
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                msg = None
+            if msg is not None:
+                await try_delete(msg)
         # Create a View
         view = PlayerQueueUI(bot, self.__class__)
 
         # Make a new embed
         embed = await self.generate_embed(bot)
-        return await channel.send(embed=embed, view=view)
+        msg = await channel.send(embed=embed, view=view)
+        await meta_db.update_one(
+            {"_id": meta_key},
+            {"$set": {"message_id": msg.id}},
+            upsert=True,
+        )
+        await self.db_save(db)
+        return msg
 
     async def db_save(self, db):
         # DB Commit

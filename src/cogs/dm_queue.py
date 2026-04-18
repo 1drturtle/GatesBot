@@ -13,7 +13,12 @@ import utils.constants as constants
 from cogs.models.queue_models import Queue, Group
 from cogs.queue import queue_from_guild, length_check
 from utils.checks import has_role, has_any_role
-from utils.functions import create_queue_embed, try_delete, create_default_embed
+from utils.functions import (
+    create_queue_embed,
+    try_delete,
+    create_default_embed,
+    find_or_migrate_queue_message_id,
+)
 from ui.dm_queue_menu import DMQueueUI
 
 GateGroup = namedtuple("GateGroup", "gate claimed name")
@@ -42,6 +47,7 @@ class DMQueue(commands.Cog):
         )
 
         self.db = self.bot.mdb["dm_queue"]
+        self.meta_db = self.bot.mdb["queue_meta"]
         self.dm_db = self.bot.mdb["dm_analytics"]
         self.assign_data_db = self.bot.mdb["dm_assign_analytics"]
 
@@ -116,23 +122,32 @@ class DMQueue(commands.Cog):
 
         embed = await self.generate_embed()
 
-        # find old & delete
-        history = await ch.history(limit=50).flatten()
-        for msg in history:
-            if len(msg.embeds) != 1 or msg.author.id != self.bot.user.id:
-                continue
-
-            old_embed = msg.embeds[0]
-
-            if old_embed.title != "DM Queue":
-                continue
-
-            await try_delete(msg)
+        # delete old queue message if present
+        meta_key = f"dm_queue:{self.queue_channel_id}"
+        old_message_id = await find_or_migrate_queue_message_id(
+            channel=ch,
+            meta_db=self.meta_db,
+            meta_key=meta_key,
+            embed_title_prefix="DM Queue",
+            bot_user_id=self.bot.user.id,
+        )
+        if old_message_id:
+            try:
+                old_msg = await ch.fetch_message(old_message_id)
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                old_msg = None
+            if old_msg is not None:
+                await try_delete(old_msg)
 
         # send new
         view = DMQueueUI(self.bot, self.__class__)
 
-        await ch.send(embed=embed, view=view)
+        msg = await ch.send(embed=embed, view=view)
+        await self.meta_db.update_one(
+            {"_id": meta_key},
+            {"$set": {"message_id": msg.id}},
+            upsert=True,
+        )
 
     @commands.group(name="dm", invoke_without_command=True)
     async def dm(self, ctx):
