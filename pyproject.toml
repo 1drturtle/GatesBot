@@ -15,7 +15,29 @@ dependencies = [
 dev = [
     "pre-commit>=4.5.1",
     "pytest>=8.4.0",
+    "pytest-cov>=7.0.0",
     "ruff>=0.12.0",
+]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--cov=src",
+    "--cov-branch",
+    "--cov-report=term-missing",
+    "--cov-report=xml",
+]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+exclude_lines = [
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "pragma: no cover",
 ]
 
 [tool.ruff]
