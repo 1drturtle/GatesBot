@@ -14,7 +14,7 @@ from common.discord_utils import try_delete
 from common.embeds import create_default_embed
 from queueing.models import Player, Queue
 from queueing.parsing import check_level_role, length_check, parse_player_class
-from queueing.repository import load_queue_for_guild
+from queueing.repositories import load_queue_for_guild
 from queueing.services import get_queue_services
 from queueing.views import PlayerQueueUI
 

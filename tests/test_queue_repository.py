@@ -4,7 +4,7 @@ import asyncio
 from typing import Any
 
 from queueing.models import Queue
-from queueing.repository import QueueRepository
+from queueing.repositories import QueueRepository
 
 
 class FakeGuild:

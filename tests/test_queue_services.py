@@ -6,8 +6,10 @@ from unittest.mock import AsyncMock
 
 from queueing.config import QueueRuntimeConfig
 from queueing.models import Group, Player, Queue
-from queueing.repository import ReadyQueueEntry
-from queueing.services import DMQueueService, PlayerQueueService, StrikeQueueService
+from queueing.repositories.ready_queue import ReadyQueueEntry
+from queueing.services.dm_queue import DMQueueService
+from queueing.services.player_queue import PlayerQueueService
+from queueing.services.strike_queue import StrikeQueueService
 
 
 class FakeRole:
@@ -86,9 +88,7 @@ class InMemoryReadyQueueRepository:
     async def upsert_ready(self, *, member_id: int, text: str, message_id: int):
         del message_id
         self.entries = [entry for entry in self.entries if entry.member_id != member_id]
-        self.entries.append(
-            ReadyQueueEntry(member_id=member_id, text=text, message_id=None, ready_on=None)
-        )
+        self.entries.append(ReadyQueueEntry(member_id=member_id, text=text, message_id=None, ready_on=None))
 
     async def update_text(self, *, member_id: int, text: str):
         for entry in self.entries:

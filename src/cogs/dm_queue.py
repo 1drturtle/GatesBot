@@ -46,7 +46,6 @@ class DMQueue(commands.Cog):
 
     @commands.Cog.listener(name="on_message")
     async def dm_queue_listener(self, msg):
-
         if msg.channel.id != self.queue_channel_id:
             return
 
@@ -63,7 +62,7 @@ class DMQueue(commands.Cog):
 
         try:
             await msg.add_reaction("\U0001f44d")
-        except (discord.Forbidden, discord.NotFound):
+        except discord.Forbidden, discord.NotFound:
             pass
 
         await self.update_queue()
@@ -273,7 +272,6 @@ class DMQueue(commands.Cog):
     @dm_stats.command(name="dump")
     @has_any_role(["DM", "Assistant"])
     async def dm_stats_dump(self, ctx, who: discord.Member | None = None):
-
         who = who or ctx.author
 
         dm_data = await self.dm_db.find_one({"_id": who.id})
@@ -301,7 +299,6 @@ class DMQueue(commands.Cog):
     @dm_stats.command(name="reinforcements")
     @has_any_role(["DM", "Assistant"])
     async def dm_reinforcements_dump(self, ctx, who: discord.Member | None = None):
-
         if who:
             data = (
                 await self.bot.mdb["reinforcement_analytics"]
@@ -342,7 +339,7 @@ class DMQueue(commands.Cog):
             member = ctx.guild.get_member(item["_id"])
             try:
                 timestamp = int((item["dm_claims"].get("last_claim") - datetime.datetime(1970, 1, 1)).total_seconds())
-            except (KeyError, IndexError):
+            except KeyError, IndexError:
                 continue
             molded_data.append((member, timestamp))
         molded_data = sorted(molded_data, key=lambda i: i[1])

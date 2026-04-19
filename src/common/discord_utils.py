@@ -8,7 +8,7 @@ import disnake as discord
 async def try_delete(message: discord.Message) -> None:
     try:
         await message.delete()
-    except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+    except discord.Forbidden, discord.NotFound, discord.HTTPException:
         pass
 
 

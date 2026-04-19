@@ -225,7 +225,7 @@ class Placeholders(commands.Cog):
         for member in inactive_members:
             try:
                 await member.send(final_msg)
-            except (discord.HTTPException, discord.Forbidden):
+            except discord.HTTPException, discord.Forbidden:
                 fail.append(member)
             else:
                 success.append(member)
@@ -310,7 +310,7 @@ class Placeholders(commands.Cog):
                         " all you would need to do is shoot one of us admins a message (Lentan or Aeslyn)"
                         " and we'll get you right back in!"
                     )
-                except (discord.HTTPException, discord.Forbidden):
+                except discord.HTTPException, discord.Forbidden:
                     await mod_log_channel.send(f"Could not send inactive spiel to {member.mention} via DM.")
                 else:
                     await mod_log_channel.send(f"Inactive spiel sent to {member.mention} via DM.")
@@ -321,7 +321,6 @@ class Placeholders(commands.Cog):
     @commands.command(name="removeemojis")
     @commands.check_any(commands.is_owner(), has_role("Admin"))  # pyright: ignore[reportArgumentType]
     async def remove_old_emojis(self, ctx, channel: discord.TextChannel):
-
         removed_reactions = 0
         removed_messages = 0
 

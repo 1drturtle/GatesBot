@@ -314,8 +314,8 @@ class GroupManagerUI(ManageUIParent):
         who = self.dm_selector.selected
 
         result = await self.dm_service.assign_dm_to_group(
-            guild=inter.guild, # pyright: ignore[reportArgumentType]
-            summoner=inter.author, # pyright: ignore[reportArgumentType]
+            guild=inter.guild,  # pyright: ignore[reportArgumentType]
+            summoner=inter.author,  # pyright: ignore[reportArgumentType]
             group_number=self.group_num + 1,
             dm_member_id=who.id,
             view_factory=lambda: _dm_queue_view(self.bot),
