@@ -3,11 +3,10 @@ from __future__ import annotations
 import logging
 import re
 
-import discord
-import disnake
+import disnake as discord
 import pendulum
-from discord.ext import commands
-from discord.ext import tasks
+from disnake.ext import commands
+from disnake.ext import tasks
 
 import common.constants as constants
 from common.checks import has_role
@@ -101,7 +100,7 @@ class QueueChannel(commands.Cog):
         if not result.success:
             try:
                 await message.author.send(result.message)
-            except disnake.Forbidden:
+            except discord.Forbidden:
                 pass
             if result.should_delete_source_message:
                 await try_delete(message)

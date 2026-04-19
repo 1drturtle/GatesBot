@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-import discord
+import disnake as discord
 
 from queueing.documents import ClassLevelDocument, ParsedPlayerClassDocument
 

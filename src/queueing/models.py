@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-import discord
+import disnake as discord
 
 from common.constants import GROUP_SIZE, ROLE_MARKERS, TIERS
 from queueing.documents import (

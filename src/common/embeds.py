@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-import discord
+import disnake as discord
 
 
 EMBED_COLOUR = discord.Color(int("0x2F3136", base=16))

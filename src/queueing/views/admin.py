@@ -5,8 +5,7 @@ import contextlib
 import logging
 from typing import Any, Optional
 
-import discord
-import disnake
+import disnake as discord
 
 from common.embeds import create_default_embed
 from queueing.services import get_queue_services
@@ -26,7 +25,7 @@ def _dm_queue_view(bot):
     return DMQueueUI(bot)
 
 
-class ManageUIParent(disnake.ui.View):
+class ManageUIParent(discord.ui.View):
     def __init__(self, bot, queue):
         super().__init__(timeout=None)
         self.bot = bot
@@ -66,24 +65,24 @@ class ManageUIParent(disnake.ui.View):
     async def custom_refresh(self, interaction):
         raise NotImplementedError()
 
-    async def generate_menu(self, interaction) -> disnake.Embed:
+    async def generate_menu(self, interaction) -> discord.Embed:
         raise NotImplementedError()
 
     @staticmethod
     async def prompt_message(
-        interaction: disnake.Interaction,
+        interaction: discord.Interaction,
         prompt: str,
         ephemeral: bool = True,
         timeout: int = 60,
     ) -> str | None:
         await interaction.send(prompt, ephemeral=ephemeral)
         try:
-            input_msg: disnake.Message = await interaction.bot.wait_for(
+            input_msg: discord.Message = await interaction.bot.wait_for(
                 "message",
                 timeout=timeout,
                 check=lambda msg: msg.author == interaction.author and msg.channel.id == interaction.channel_id,
             )
-            with contextlib.suppress(disnake.HTTPException):
+            with contextlib.suppress(discord.HTTPException):
                 await input_msg.delete()
             return input_msg.content
         except asyncio.TimeoutError:
@@ -102,7 +101,7 @@ class PlayerQueueManageUI(ManageUIParent):
         self.group_selector = GroupSelector(self.bot, queue, self)
         self.add_item(self.group_selector)
 
-    async def generate_menu(self, interaction) -> disnake.Embed:
+    async def generate_menu(self, interaction) -> discord.Embed:
         queue = await self.queue_from_guild(interaction.guild)
 
         embed = create_default_embed(interaction)
@@ -111,8 +110,8 @@ class PlayerQueueManageUI(ManageUIParent):
         embed.description = f"**Status:** {locked_emoji}\n**Groups:** {len(queue.groups)}\n"
         return embed
 
-    @disnake.ui.button(label="Refresh Queue", emoji="🔃")
-    async def queue_refresh(self, button, inter: disnake.MessageInteraction):
+    @discord.ui.button(label="Refresh Queue", emoji="🔃")
+    async def queue_refresh(self, button, inter: discord.MessageInteraction):
         del button
         await self.player_service.refresh_queue_message(
             guild=inter.guild,  # pyright: ignore[reportArgumentType]
@@ -120,8 +119,8 @@ class PlayerQueueManageUI(ManageUIParent):
         )
         await self.refresh_menu(inter)
 
-    @disnake.ui.button(label="Toggle Lock", emoji="🔒")
-    async def toggle_queue_lock(self, button, inter: disnake.MessageInteraction):
+    @discord.ui.button(label="Toggle Lock", emoji="🔒")
+    async def toggle_queue_lock(self, button, inter: discord.MessageInteraction):
         del button
         await inter.response.defer()
 
@@ -164,8 +163,8 @@ class PlayerQueueManageUI(ManageUIParent):
         log.info("Queue has been %s by %s", "locked" if should_lock else "unlocked", inter.author)
         await self.refresh_menu(inter)
 
-    @disnake.ui.button(label="Shuffle Rank", emoji="🔀")
-    async def shuffle_button(self, button, inter: disnake.MessageInteraction):
+    @discord.ui.button(label="Shuffle Rank", emoji="🔀")
+    async def shuffle_button(self, button, inter: discord.MessageInteraction):
         del button
         await inter.response.defer()
 
@@ -196,7 +195,7 @@ class PlayerQueueManageUI(ManageUIParent):
         log.info("[Queue] Rank %s shuffled by %s.", tier, inter.author)
 
 
-class GroupSelector(disnake.ui.StringSelect):
+class GroupSelector(discord.ui.StringSelect):
     def __init__(self, bot, queue, parent_view):
         self.bot = bot
         self.queue = queue
@@ -210,14 +209,14 @@ class GroupSelector(disnake.ui.StringSelect):
 
     def create_options(self):
         options = [
-            disnake.SelectOption(label=f"{index + 1}. Rank {group.tier}")
+            discord.SelectOption(label=f"{index + 1}. Rank {group.tier}")
             for index, group in enumerate(self.queue.groups)
         ]
         if not options:
             return ["No queue groups."]
         return options
 
-    async def callback(self, inter: disnake.MessageInteraction):
+    async def callback(self, inter: discord.MessageInteraction):
         if "No queue groups" in self.values[0]:
             return await self.parent_view.refresh_menu(inter)
 
@@ -228,7 +227,7 @@ class GroupSelector(disnake.ui.StringSelect):
         for entry in entries:
             member = inter.guild.get_member(entry.member_id)  # pyright: ignore[reportOptionalMemberAccess]
             if member is None:
-                with contextlib.suppress(disnake.NotFound, disnake.Forbidden):
+                with contextlib.suppress(discord.NotFound, discord.Forbidden):
                     member = await inter.guild.fetch_member(entry.member_id)  # pyright: ignore[reportOptionalMemberAccess]
             if member is None:
                 continue
@@ -257,7 +256,7 @@ class GroupManagerUI(ManageUIParent):
     async def custom_refresh(self, interaction):
         del interaction
 
-    async def generate_menu(self, interaction) -> disnake.Embed:
+    async def generate_menu(self, interaction) -> discord.Embed:
         queue = await self.queue_from_guild(interaction.guild)
         self.group = queue.groups[self.group_num]
         assigned = f"<@{self.group.assigned}>" if self.group.assigned else "No."
@@ -281,12 +280,12 @@ class GroupManagerUI(ManageUIParent):
             names.append(f"{player.mention}{postfix}")
         return discord.utils.escape_markdown(", ".join(names))
 
-    @disnake.ui.button(label="↩ Back", style=disnake.ButtonStyle.red)
+    @discord.ui.button(label="↩ Back", style=discord.ButtonStyle.red)
     async def back_button(self, button, inter):
         del button
         await self.move_to_view(inter, self.parent_view)
 
-    @disnake.ui.button(label="🔒 Toggle Group Lock", style=disnake.ButtonStyle.red)
+    @discord.ui.button(label="🔒 Toggle Group Lock", style=discord.ButtonStyle.red)
     async def lock_group_button(self, button, inter):
         del button
         await inter.response.defer()
@@ -305,8 +304,8 @@ class GroupManagerUI(ManageUIParent):
         )
         return await self.refresh_menu(inter)
 
-    @disnake.ui.button(label="Assign", style=disnake.ButtonStyle.green)
-    async def assign_button(self, button, inter: disnake.MessageInteraction):
+    @discord.ui.button(label="Assign", style=discord.ButtonStyle.green)
+    async def assign_button(self, button, inter: discord.MessageInteraction):
         del button
         if self.dm_selector.selected is None:
             return await inter.send("No DM selected, cannot assign", ephemeral=True)
@@ -330,7 +329,7 @@ class GroupManagerUI(ManageUIParent):
         await inter.send(result.message, ephemeral=True)
 
 
-class DMSelector(disnake.ui.StringSelect):
+class DMSelector(discord.ui.StringSelect):
     def __init__(self, bot, queue, dm_queue_data):
         self.bot = bot
         self.queue = queue
@@ -351,7 +350,7 @@ class DMSelector(disnake.ui.StringSelect):
             options=options,
         )
 
-    async def callback(self, inter: disnake.MessageInteraction):
+    async def callback(self, inter: discord.MessageInteraction):
         selected_dm_name = self.values[0]
         if selected_dm_name == "No DMs in Queue.":
             return await inter.send("I can't do anything!", ephemeral=True)

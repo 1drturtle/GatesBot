@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, TypeVar
 
-import discord
+import disnake as discord
 import pymongo
 
 from common.discord_utils import find_or_migrate_queue_message_id
@@ -36,7 +36,9 @@ class QueueRepository:
         channel_id: int | None = None,
     ) -> QueueType:
         resolved_channel_id = channel_id if channel_id is not None else self.default_channel_id
-        docs = await self.collection.find({"$or": [{"guild_id": guild.id}, {"server_id": guild.id}]}).to_list(None)
+        docs = await self.collection.find({"$or": [{"guild_id": guild.id}, {"server_id": guild.id}]}).to_list(
+            length=None
+        )
         raw = self._choose_preferred_document(docs, resolved_channel_id)
 
         if raw is None:
@@ -142,7 +144,7 @@ class ReadyQueueRepository:
         await self.collection.delete_many({"_id": {"$in": member_ids}})
 
     async def list_entries(self) -> list[ReadyQueueEntry]:
-        items = await self.collection.find().sort("readyOn", pymongo.ASCENDING).to_list(None)
+        items = await self.collection.find().sort("readyOn", pymongo.ASCENDING).to_list(length=None)
         return [
             ReadyQueueEntry(
                 member_id=int(item["_id"]),
@@ -175,7 +177,7 @@ class GateRepository:
         self.collection = collection
 
     async def list_gates(self) -> list[dict[str, Any]]:
-        return await self.collection.find().to_list(None)
+        return await self.collection.find().to_list(length=None)
 
     async def get_by_name(self, gate_name: str) -> dict[str, Any] | None:
         return await self.collection.find_one({"name": gate_name.lower()})

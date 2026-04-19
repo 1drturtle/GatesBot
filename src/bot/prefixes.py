@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from discord.ext import commands
+from disnake.ext import commands
 
 from common.settings import settings
 

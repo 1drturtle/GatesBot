@@ -4,10 +4,9 @@ import datetime
 import logging
 from collections import namedtuple
 
-import discord
-import disnake
+import disnake as discord
 import pendulum
-from discord.ext import commands
+from disnake.ext import commands
 
 import common.constants as constants
 from common.checks import has_any_role, has_role
@@ -64,7 +63,7 @@ class DMQueue(commands.Cog):
 
         try:
             await msg.add_reaction("\U0001f44d")
-        except (disnake.Forbidden, disnake.NotFound):
+        except (discord.Forbidden, discord.NotFound):
             pass
 
         await self.update_queue()

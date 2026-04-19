@@ -1,7 +1,7 @@
 import logging
 
-import discord
-from discord.ext import commands
+import disnake as discord
+from disnake.ext import commands
 
 import common.constants as constants
 from common.checks import has_role

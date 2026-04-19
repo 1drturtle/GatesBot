@@ -3,17 +3,12 @@ name = "Gatesbot"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 dependencies = [
     "d20>=1.1.2",
-    "disnake[discord]==2.9",
-    "jishaku<=2.4.0",
-    "motor==3.1.1",
-    "pymongo~=4.8.0",
+    "disnake>=2.11,<3",
+    "pymongo>=4.11,<5",
     "pendulum>=3.2.0",
-    "psutil>=7.2.2",
-    "setuptools==80.9.0",
-    "sentry-sdk==0.19.2",
 ]
 
 [dependency-groups]
@@ -25,7 +20,7 @@ dev = [
 
 [tool.ruff]
 line-length = 120
-target-version = "py311"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = ["B", "C90", "E", "F", "W"]

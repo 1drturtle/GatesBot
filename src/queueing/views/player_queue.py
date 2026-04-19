@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-import disnake
+import disnake as discord
 
 from queueing.services import get_queue_services
 from queueing.views.admin import PlayerQueueManageUI
@@ -10,7 +10,7 @@ from queueing.views.admin import PlayerQueueManageUI
 log = logging.getLogger(__name__)
 
 
-class PlayerQueueUI(disnake.ui.View):
+class PlayerQueueUI(discord.ui.View):
     def __init__(self, bot):
         super().__init__(timeout=None)
         self.bot = bot
@@ -24,12 +24,12 @@ class PlayerQueueUI(disnake.ui.View):
             channel_id=self.services.config.player_queue_channel_id,
         )
 
-    @disnake.ui.button(
+    @discord.ui.button(
         label="Leave",
-        style=disnake.ButtonStyle.red,
+        style=discord.ButtonStyle.red,
         custom_id="gatesbot_playerqueue_leave",
     )
-    async def leave_button(self, _: disnake.ui.Button, inter: disnake.MessageInteraction):
+    async def leave_button(self, _: discord.ui.Button, inter: discord.MessageInteraction):
         result = await self.player_service.leave_member(
             guild=inter.guild,  # pyright: ignore[reportArgumentType]
             member_id=inter.author.id,
@@ -40,13 +40,13 @@ class PlayerQueueUI(disnake.ui.View):
 
         return await inter.send(result.message, ephemeral=True)
 
-    @disnake.ui.button(
+    @discord.ui.button(
         emoji="⚙",
-        style=disnake.ButtonStyle.grey,
+        style=discord.ButtonStyle.grey,
         custom_id="gatesbot_playerqueue_manage",
         disabled=False,
     )
-    async def manage_button(self, _, inter: disnake.MessageInteraction):
+    async def manage_button(self, _, inter: discord.MessageInteraction):
         queue = await self.queue_from_guild(inter.guild)
 
         if not (
@@ -61,12 +61,12 @@ class PlayerQueueUI(disnake.ui.View):
         embed = await view.generate_menu(inter)
         return await inter.send(embed=embed, view=view, ephemeral=True)
 
-    @disnake.ui.button(
+    @discord.ui.button(
         label="Claim",
-        style=disnake.ButtonStyle.green,
+        style=discord.ButtonStyle.green,
         custom_id="gatesbot_playerqueue_claim",
     )
-    async def claim_button(self, _, inter: disnake.MessageInteraction):
+    async def claim_button(self, _, inter: discord.MessageInteraction):
         if not (inter.author.id == self.bot.owner_id or any(True for role in inter.author.roles if role.name == "DM")):  # pyright: ignore[reportAttributeAccessIssue]
             return await inter.send(
                 "You are not allowed to use this function.",

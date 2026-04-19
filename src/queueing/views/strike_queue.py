@@ -1,23 +1,23 @@
 from __future__ import annotations
 
-import disnake
+import disnake as discord
 
 from queueing.services import get_queue_services
 
 
-class StrikeQueueUI(disnake.ui.View):
+class StrikeQueueUI(discord.ui.View):
     def __init__(self, bot):
         super().__init__(timeout=None)
         self.bot = bot
         self.services = get_queue_services(bot)
         self.strike_service = self.services.strike_queue_service
 
-    @disnake.ui.button(
+    @discord.ui.button(
         label="Leave",
-        style=disnake.ButtonStyle.red,
+        style=discord.ButtonStyle.red,
         custom_id="gatesbot_strikequeue_leave",
     )
-    async def leave_button(self, button: disnake.ui.Button, inter: disnake.MessageInteraction):
+    async def leave_button(self, button: discord.ui.Button, inter: discord.MessageInteraction):
         del button
         result = await self.strike_service.leave_member(
             guild=inter.guild,  # pyright: ignore[reportArgumentType]

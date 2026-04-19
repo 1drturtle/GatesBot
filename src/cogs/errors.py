@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 from datetime import timedelta
 
-import discord
-from discord.ext import commands
+import disnake as discord
+from disnake.ext import commands
 
 
 log = logging.getLogger(__name__)

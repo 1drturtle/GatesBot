@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim AS builder
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS builder
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
@@ -11,11 +11,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 COPY . .
 
-FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim AS runtime
-
-RUN apt-get update \
-    && apt-get install --no-install-recommends -y procinfo \
-    && rm -rf /var/lib/apt/lists/*
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS runtime
 
 WORKDIR /app
 

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
-import discord
-from discord.ext import commands
+import disnake as discord
+from disnake.ext import commands
 
 from common.constants import DATE_FORMAT, VERSION
 from common.discord_utils import try_delete

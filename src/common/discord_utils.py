@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import discord
+import disnake as discord
 
 
 async def try_delete(message: discord.Message) -> None:

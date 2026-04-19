@@ -3,8 +3,8 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
-import discord
-from discord.ext import commands
+import disnake as discord
+from disnake.ext import commands
 
 
 def has_role(role_name: str):

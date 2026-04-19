@@ -3,11 +3,10 @@ import logging
 from collections import namedtuple
 from typing import List
 
-import discord
-import disnake
+import disnake as discord
 import pendulum
-from discord.ext import commands
-from discord.ext import tasks
+from disnake.ext import commands
+from disnake.ext import tasks
 
 import common.constants as constants
 from common.checks import has_role
@@ -93,7 +92,7 @@ class Placeholders(commands.Cog):
     async def run_placeholder_reminder(self, placeholder_data: dict, hours: int = 1):
         # get data from bot
         guild = self.bot.get_guild(placeholder_data["guild_id"])
-        member: disnake.Member = guild.get_member(placeholder_data["author_id"])
+        member: discord.Member = guild.get_member(placeholder_data["author_id"])
         channel = guild.get_channel(placeholder_data["channel_id"])
 
         if not channel or not member:
@@ -202,7 +201,7 @@ class Placeholders(commands.Cog):
         s = self.bot.get_guild(q.server_id)
         role = s.get_role(constants.INACTIVE_ROLE_ID)
 
-        inactive_members: List[disnake.Member] = list(filter(lambda m: role in m.roles, s.members))
+        inactive_members: List[discord.Member] = list(filter(lambda m: role in m.roles, s.members))
 
         final_msg = (
             'Hi!\n\nYou\'ve recently been pinged as "Inactive" since you have not '
@@ -246,7 +245,7 @@ class Placeholders(commands.Cog):
     @commands.check_any(has_role("Admin"), commands.is_owner())  # pyright: ignore[reportArgumentType]
     async def inactive_dms(self, ctx):
         out = ""
-        data = await self.bot.mdb["dm_analytics"].find().sort("dm_claims.last_claim").to_list(None)
+        data = await self.bot.mdb["dm_analytics"].find().sort("dm_claims.last_claim").to_list(length=None)
         q = self.bot.cogs["QueueChannel"]
         serv = self.bot.get_guild(q.server_id)
         for item in data:
@@ -287,7 +286,7 @@ class Placeholders(commands.Cog):
         # six months ago
         old = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=30 * 6)
 
-        data = await self.active_db.find({"last_signup": {"$lte": old}}).to_list(None)
+        data = await self.active_db.find({"last_signup": {"$lte": old}}).to_list(length=None)
         user_ids = [x["_id"] for x in data]
 
         # convert into users
@@ -321,7 +320,7 @@ class Placeholders(commands.Cog):
 
     @commands.command(name="removeemojis")
     @commands.check_any(commands.is_owner(), has_role("Admin"))  # pyright: ignore[reportArgumentType]
-    async def remove_old_emojis(self, ctx, channel: disnake.TextChannel):
+    async def remove_old_emojis(self, ctx, channel: discord.TextChannel):
 
         removed_reactions = 0
         removed_messages = 0

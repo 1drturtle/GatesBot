@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Callable, cast
 
-import discord
+import disnake as discord
 
 from common.embeds import create_queue_embed
 from queueing.config import QueueRuntimeConfig

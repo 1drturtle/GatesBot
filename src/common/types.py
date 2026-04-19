@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Protocol, TypeAlias
 
-import discord
-from discord.ext import commands
+import disnake as discord
+from disnake.ext import commands
 
 CommandContext: TypeAlias = commands.Context[Any]
 

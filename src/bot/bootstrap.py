@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-import discord
-import motor.motor_asyncio
-from discord.ext import commands
+import disnake as discord
+from disnake.ext import commands
+from pymongo import AsyncMongoClient
 
 from bot.prefixes import get_prefix
 from common.constants import DEBUG_SERVER
@@ -14,7 +14,6 @@ from queueing.views import DMQueueUI, PlayerQueueUI, StrikeQueueUI
 
 COGS = {
     "cogs.util",
-    "jishaku",
     "cogs.queue",
     "cogs.placeholders",
     "cogs.schedule",
@@ -34,7 +33,7 @@ class GatesBot(commands.Bot):
         self.environment = settings.environment
         self.loop = None  # type: ignore
 
-        self.mongo_client = motor.motor_asyncio.AsyncIOMotorClient(settings.mongo_url)
+        self.mongo_client = AsyncMongoClient(settings.mongo_url or "mongodb://localhost:27017")
         self.mdb = self.mongo_client[settings.mongo_db]
         self.prefixes: dict[str, str] = {}
         self.prefix = settings.prefix

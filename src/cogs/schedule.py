@@ -1,8 +1,8 @@
 import logging
 
-import discord
+import disnake as discord
 import pendulum
-from discord.ext import commands
+from disnake.ext import commands
 import textwrap
 
 from common.constants import SCHEDULE_CHANNEL, SCHEDULE_CHANNEL_DEBUG
