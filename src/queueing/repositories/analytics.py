@@ -8,6 +8,28 @@ import disnake as discord
 from queueing.documents import GateDocument, GroupDocument
 
 
+def _format_class_level(class_level: Any) -> str | None:
+    if not isinstance(class_level, dict):
+        return None
+
+    class_name = str(class_level.get("class") or "").strip()
+    subclass = str(class_level.get("subclass") or "").strip()
+    level = class_level.get("level")
+    if not class_name or level is None:
+        return None
+
+    parts = []
+    if subclass and subclass.lower() != "none":
+        parts.append(subclass)
+    if class_name.lower() != "none":
+        parts.append(class_name)
+    if not parts:
+        return None
+
+    parts.append(str(level))
+    return " ".join(parts)
+
+
 class AnalyticsRepository:
     def __init__(self, mdb: Any):
         self.player_queue_analytics = mdb["queue_analytics"]
@@ -24,15 +46,20 @@ class AnalyticsRepository:
         member: discord.Member,
         total_level: int,
         levels: list[dict[str, Any]],
+        signup_text: str | None = None,
     ) -> None:
+        set_data: dict[str, Any] = {
+            "user_id": member.id,
+            "last.level": total_level,
+            "last.classes": levels,
+            "last.name": member.display_name,
+            "joined_at": member.joined_at,
+        }
+        if signup_text is not None:
+            set_data["last.signup_text"] = signup_text
+
         data = {
-            "$set": {
-                "user_id": member.id,
-                "last.level": total_level,
-                "last.classes": levels,
-                "last.name": member.display_name,
-                "joined_at": member.joined_at,
-            },
+            "$set": set_data,
             "$currentDate": {"last_gate_signup": True},
             "$inc": {"gate_signup_count": 1},
         }
@@ -46,6 +73,34 @@ class AnalyticsRepository:
             {"$currentDate": {"last_signup": True}},
             upsert=True,
         )
+
+    async def get_last_player_signup_text(self, member_id: int) -> str | None:
+        data = await self.player_queue_analytics.find_one({"user_id": member_id})
+        if data is None:
+            return None
+
+        last = data.get("last")
+        if isinstance(last, dict):
+            signup_text = last.get("signup_text")
+            if isinstance(signup_text, str) and signup_text.strip():
+                return signup_text
+
+            classes = last.get("classes")
+        else:
+            signup_text = data.get("last.signup_text")
+            if isinstance(signup_text, str) and signup_text.strip():
+                return signup_text
+
+            classes = data.get("last.classes")
+
+        if not isinstance(classes, list):
+            return None
+
+        class_lines = [_format_class_level(class_level) for class_level in classes]
+        class_lines = [line for line in class_lines if line]
+        if not class_lines:
+            return None
+        return " / ".join(class_lines)
 
     async def decrement_player_signup(self, member_id: int) -> None:
         await self.player_queue_analytics.update_one(

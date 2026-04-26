@@ -11,9 +11,11 @@ from queueing.config import QueueRuntimeConfig
 from queueing.contracts import ClaimResult, LeaveResult, LockResult, QueueRefreshResult, SignupResult
 from queueing.documents import GateDocument
 from queueing.models import Group, Player, Queue
-from queueing.parsing import length_check
+from queueing.parsing import check_level_role, length_check, parse_player_class
 from queueing.repositories import AnalyticsRepository, GateRepository, QueueRepository
 from queueing.services.presentation import QueuePresentationService
+
+PLAYER_QUEUE_JOIN_CUSTOM_ID = "gatesbot_playerqueue_join"
 
 
 class PlayerQueueService:
@@ -40,9 +42,51 @@ class PlayerQueueService:
         message: discord.Message,
         player: Player,
         view_factory: Callable[[], Any],
+        signup_text: str | None = None,
+    ) -> SignupResult:
+        return await self.signup_player(
+            guild=message.guild,  # pyright: ignore[reportArgumentType]
+            member=message.author,  # pyright: ignore[reportArgumentType]
+            player=player,
+            view_factory=view_factory,
+            signup_text=signup_text,
+            should_delete_duplicate_source=True,
+        )
+
+    async def signup_from_text(
+        self,
+        *,
+        guild: discord.Guild,
+        member: discord.Member,
+        text: str,
+        view_factory: Callable[[], Any],
+        should_delete_duplicate_source: bool = False,
+    ) -> SignupResult:
+        player_details = parse_player_class(text.strip())
+        player = Player.new(member, player_details)
+        await check_level_role(player)
+
+        return await self.signup_player(
+            guild=guild,
+            member=member,
+            player=player,
+            view_factory=view_factory,
+            signup_text=text.strip(),
+            should_delete_duplicate_source=should_delete_duplicate_source,
+        )
+
+    async def signup_player(
+        self,
+        *,
+        guild: discord.Guild,
+        member: discord.Member,
+        player: Player,
+        view_factory: Callable[[], Any],
+        signup_text: str | None = None,
+        should_delete_duplicate_source: bool = False,
     ) -> SignupResult:
         queue = await self.queue_repository.load_for_guild(
-            message.guild,  # pyright: ignore[reportArgumentType]
+            guild,
             channel_id=self.config.player_queue_channel_id,
         )
 
@@ -50,7 +94,7 @@ class PlayerQueueService:
             return SignupResult(
                 success=False,
                 message="You are already in a queue!",
-                should_delete_source_message=True,
+                should_delete_source_message=should_delete_duplicate_source,
             )
 
         if (index := queue.can_fit_in_group(player)) is not None:
@@ -61,13 +105,14 @@ class PlayerQueueService:
             group_number = len(queue.groups)
 
         await self.analytics_repository.record_player_signup(
-            member=message.author,  # pyright: ignore[reportArgumentType]
+            member=member,
             total_level=player.total_level,
             levels=player.levels,  # pyright: ignore[reportArgumentType]
+            signup_text=signup_text,
         )
 
         await self.queue_repository.save(queue)
-        await self.refresh_queue_message(guild=message.guild, queue=queue, view_factory=view_factory)  # pyright: ignore[reportArgumentType]
+        await self.refresh_queue_message(guild=guild, queue=queue, view_factory=view_factory)
 
         return SignupResult(
             success=True,
@@ -276,12 +321,18 @@ class PlayerQueueService:
             raise ValueError("Queue channel not found")
 
         embed = await self.presentation_service.build_player_queue_embed(queue)
+        view = view_factory()
+        for child in getattr(view, "children", []):
+            if getattr(child, "custom_id", None) == PLAYER_QUEUE_JOIN_CUSTOM_ID:
+                child.disabled = queue.locked
+                break
+
         return await self.presentation_service.refresh_queue_message(
             channel=channel,
             meta_key=f"player_queue:{self.config.player_queue_channel_id}",
             embed_title_prefix="Gate Sign-Up List",
             embed=embed,
-            view=view_factory(),
+            view=view,
         )
 
     async def move_member(

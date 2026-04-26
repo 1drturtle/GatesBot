@@ -64,6 +64,7 @@ def make_config(environment: str = "production") -> QueueRuntimeConfig:
 def make_analytics(**overrides: Any) -> SimpleNamespace:
     defaults = {
         "record_player_signup": AsyncMock(),
+        "get_last_player_signup_text": AsyncMock(return_value=None),
         "decrement_player_signup": AsyncMock(),
         "set_marked": AsyncMock(),
         "clear_marks_for_members": AsyncMock(),

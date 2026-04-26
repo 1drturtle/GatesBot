@@ -9,20 +9,78 @@ from queueing.views.admin import PlayerQueueManageUI
 
 log = logging.getLogger(__name__)
 
+JOIN_MODAL_INPUT_ID = "gatesbot_playerqueue_join_classes"
+JOIN_BUTTON_CUSTOM_ID = "gatesbot_playerqueue_join"
+
+
+class PlayerQueueJoinModal(discord.ui.Modal):
+    def __init__(self, bot, *, default_text: str | None = None):
+        self.bot = bot
+        self.services = get_queue_services(bot)
+        self.player_service = self.services.player_queue_service
+
+        components = [
+            discord.ui.TextInput(
+                label="Class and level",
+                custom_id=JOIN_MODAL_INPUT_ID,
+                style=discord.TextInputStyle.paragraph,
+                placeholder="Fighter 5 or Battle Master Fighter 5 / Wizard 3",
+                value=default_text,
+                required=True,
+                max_length=500,
+            )
+        ]
+        super().__init__(
+            title="Join Player Queue",
+            custom_id="gatesbot_playerqueue_join_modal",
+            components=components,
+        )
+
+    async def callback(self, inter: discord.ModalInteraction):
+        text = inter.text_values[JOIN_MODAL_INPUT_ID].strip()
+        result = await self.player_service.signup_from_text(
+            guild=inter.guild,  # pyright: ignore[reportArgumentType]
+            member=inter.author,  # pyright: ignore[reportArgumentType]
+            text=text,
+            view_factory=lambda: PlayerQueueUI(self.bot),
+        )
+
+        return await inter.send(result.message, ephemeral=True)
+
 
 class PlayerQueueUI(discord.ui.View):
-    def __init__(self, bot):
+    def __init__(self, bot, *, queue_locked: bool = False):
         super().__init__(timeout=None)
         self.bot = bot
         self.services = get_queue_services(bot)
         self.player_service = self.services.player_queue_service
         self.queue_repo = self.services.queue_repository
+        self._set_join_button_disabled(queue_locked)
+
+    def _set_join_button_disabled(self, disabled: bool) -> None:
+        for child in self.children:
+            if getattr(child, "custom_id", None) == JOIN_BUTTON_CUSTOM_ID:
+                child.disabled = disabled
+                return
 
     async def queue_from_guild(self, guild):
         return await self.queue_repo.load_for_guild(
             guild,
             channel_id=self.services.config.player_queue_channel_id,
         )
+
+    @discord.ui.button(
+        label="Join",
+        style=discord.ButtonStyle.green,
+        custom_id=JOIN_BUTTON_CUSTOM_ID,
+    )
+    async def join_button(self, _: discord.ui.Button, inter: discord.MessageInteraction):
+        queue = await self.queue_from_guild(inter.guild)
+        if queue.locked:
+            return await inter.send("The queue is currently locked.", ephemeral=True)
+
+        default_text = await self.services.analytics_repository.get_last_player_signup_text(inter.author.id)
+        return await inter.response.send_modal(PlayerQueueJoinModal(self.bot, default_text=default_text))
 
     @discord.ui.button(
         label="Leave",
@@ -63,7 +121,7 @@ class PlayerQueueUI(discord.ui.View):
 
     @discord.ui.button(
         label="Claim",
-        style=discord.ButtonStyle.green,
+        style=discord.ButtonStyle.primary,
         custom_id="gatesbot_playerqueue_claim",
     )
     async def claim_button(self, _, inter: discord.MessageInteraction):
@@ -89,4 +147,4 @@ class PlayerQueueUI(discord.ui.View):
         return await inter.send(result.message, ephemeral=True)
 
 
-__all__ = ["PlayerQueueUI"]
+__all__ = ["PlayerQueueJoinModal", "PlayerQueueUI"]

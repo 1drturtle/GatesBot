@@ -12,8 +12,8 @@ import common.constants as constants
 from common.checks import has_role
 from common.discord_utils import try_delete
 from common.embeds import create_default_embed
-from queueing.models import Player, Queue
-from queueing.parsing import check_level_role, length_check, parse_player_class
+from queueing.models import Queue
+from queueing.parsing import length_check
 from queueing.repositories import load_queue_for_guild
 from queueing.services import get_queue_services
 from queueing.views import PlayerQueueUI
@@ -84,18 +84,14 @@ class QueueChannel(commands.Cog):
         except discord.HTTPException:
             pass  # We ignore Discord being weird!
 
-        # Get Player Details (Classes/Subclasses, total level)
-        player_details = parse_player_class(line_re.sub("", message.content).strip())
+        signup_text = line_re.sub("", message.content).strip()
 
-        member: discord.Member = message.author  # pyright: ignore[reportAssignmentType]
-        # Create a Player Object.
-        player: Player = Player.new(member, player_details)
-        await check_level_role(player)
-
-        result = await self.player_service.signup_from_message(
-            message=message,
-            player=player,
+        result = await self.player_service.signup_from_text(
+            guild=message.guild,
+            member=message.author,  # pyright: ignore[reportArgumentType]
+            text=signup_text,
             view_factory=lambda: PlayerQueueUI(self.bot),
+            should_delete_duplicate_source=True,
         )
         if not result.success:
             try:

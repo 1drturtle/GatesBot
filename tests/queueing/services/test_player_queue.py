@@ -41,6 +41,56 @@ def test_signup_prefers_existing_group_and_records_analytics() -> None:
     service.refresh_queue_message.assert_awaited_once()
 
 
+def test_signup_from_text_parses_player_records_raw_text_and_refreshes() -> None:
+    member = make_member(1, "Alice", roles=[make_role(name="Level 5")])
+    queue = make_queue(make_group(tier=2))
+    service, _, analytics, _ = make_player_service(queue, testing=False)
+    guild = FakeGuild(1, members=[member])
+
+    result = asyncio.run(
+        service.signup_from_text(
+            guild=guild,
+            member=member,
+            text="Champion Fighter 5",
+            view_factory=object,
+        )
+    )
+
+    assert result.success is True
+    assert result.group_number == 1
+    assert queue.groups[0].players[0].member is member
+    assert queue.groups[0].players[0].total_level == 5
+    analytics.record_player_signup.assert_awaited_once_with(
+        member=member,
+        total_level=5,
+        levels=[{"class": "Fighter", "subclass": "Champion", "level": 5}],
+        signup_text="Champion Fighter 5",
+    )
+    service.refresh_queue_message.assert_awaited_once()
+
+
+def test_signup_from_text_blocks_duplicates_with_optional_source_delete_flag() -> None:
+    player = make_player(1, "Alice")
+    queue = make_queue(make_group(player))
+    service, _, analytics, _ = make_player_service(queue, testing=False)
+
+    result = asyncio.run(
+        service.signup_from_text(
+            guild=FakeGuild(1, members=[player.member]),
+            member=player.member,
+            text="Fighter 5",
+            view_factory=object,
+            should_delete_duplicate_source=True,
+        )
+    )
+
+    assert result.success is False
+    assert result.message == "You are already in a queue!"
+    assert result.should_delete_source_message is True
+    analytics.record_player_signup.assert_not_awaited()
+    service.refresh_queue_message.assert_not_awaited()
+
+
 def test_signup_blocks_duplicates_outside_testing_but_allows_in_testing() -> None:
     player = make_player(1, "Alice")
     production_queue = make_queue(make_group(player))
@@ -236,6 +286,30 @@ def test_refresh_queue_message_removes_empty_groups_and_refreshes_persistent_mes
     assert queue.groups[0].players == [player]
     presentation.build_player_queue_embed.assert_awaited_once_with(queue)
     presentation.refresh_queue_message.assert_awaited_once()
+
+
+def test_refresh_queue_message_disables_join_button_when_queue_is_locked() -> None:
+    player = make_player(1, "Alice")
+    queue = make_queue(make_group(player), locked=True)
+    config = QueueRuntimeConfig.from_environment("production")
+    channel = FakeChannel(config.player_queue_channel_id)
+    guild = FakeGuild(1, members=[player.member], channels=[channel])
+    presentation = make_presentation()
+    service = PlayerQueueService(
+        bot=make_bot(),
+        config=config,
+        queue_repository=InMemoryQueueRepository(queue),
+        gate_repository=InMemoryGateRepository(),
+        analytics_repository=make_analytics(),
+        presentation_service=presentation,
+    )
+    join_button = SimpleNamespace(custom_id="gatesbot_playerqueue_join", disabled=False)
+    view = SimpleNamespace(children=[join_button])
+
+    asyncio.run(service.refresh_queue_message(guild=guild, queue=queue, view_factory=lambda: view))
+
+    assert join_button.disabled is True
+    assert presentation.refresh_queue_message.await_args.kwargs["view"] is view
 
 
 def test_toggle_group_lock_flips_group_state() -> None:
