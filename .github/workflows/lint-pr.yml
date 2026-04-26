@@ -74,6 +74,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
       - name: Release and tag with Cocogitto
         uses: cocogitto/cocogitto-action@v3
         with:
@@ -81,3 +90,8 @@ jobs:
           release: true
           git-user: github-actions[bot]
           git-user-email: 41898282+github-actions[bot]@users.noreply.github.com
+
+      - name: Push release commit and tags
+        run: |
+          git push origin HEAD:${GITHUB_REF_NAME}
+          git push origin --tags
