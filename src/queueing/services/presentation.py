@@ -114,7 +114,7 @@ class QueuePresentationService:
                 if signup_time.tzinfo is None:
                     signup_time = signup_time.replace(tzinfo=timezone.utc)
                 timestamp = int(signup_time.timestamp())
-                wait_text = f"<t:{timestamp}:R> (`<t:{timestamp}:f>`)"
+                wait_text = f"<t:{timestamp}:R> (<t:{timestamp}:f>)"
 
             lines.append(f"**#{index}.** {player.mention} - {wait_text} - Group #{group_index + 1}, Rank {tier}")
 
