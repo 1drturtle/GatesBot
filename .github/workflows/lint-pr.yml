@@ -61,7 +61,9 @@ jobs:
           cache-to: type=gha,mode=max
 
   release:
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.actor != 'github-actions[bot]'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' ||
+      github.ref == 'refs/heads/master') && github.actor !=
+      'github-actions[bot]'
     needs:
       - checks
       - docker
@@ -73,6 +75,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.PAT }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
 
       - name: Release and tag with Cocogitto
         uses: cocogitto/cocogitto-action@v3
@@ -81,3 +93,10 @@ jobs:
           release: true
           git-user: github-actions[bot]
           git-user-email: 41898282+github-actions[bot]@users.noreply.github.com
+
+      - name: Push release commit and tags
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT }}
+        run: |
+          git push origin HEAD:${GITHUB_REF_NAME}
+          git push origin --tags
