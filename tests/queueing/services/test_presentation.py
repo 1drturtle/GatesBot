@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 
 from queueing.repositories.meta import QueueMetaRepository
 from queueing.services.presentation import QueuePresentationService, replace_persistent_message
@@ -37,6 +38,27 @@ def test_build_player_queue_embed_shows_locked_queue_and_group() -> None:
 
     assert embed.title == "Gate Sign-Up List 🔒"
     assert embed.fields[0].name.endswith("🔒")
+
+
+def test_build_player_waitlist_embed_orders_by_wait_time_descending() -> None:
+    older = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    newer = datetime(2026, 1, 2, tzinfo=timezone.utc)
+    alice = make_player(1, "Alice")
+    bob = make_player(2, "Bob")
+    missing = make_player(3, "Missing")
+    queue = make_queue(make_group(bob, missing, tier=2), make_group(alice, tier=1))
+    service = make_service()
+
+    embed = asyncio.run(
+        service.build_player_waitlist_embed(queue, signup_times={alice.member.id: older, bob.member.id: newer})
+    )
+
+    assert embed.title == "Queue Waitlist"
+    assert embed.description is not None
+    assert embed.description.index(alice.mention) < embed.description.index(bob.mention)
+    assert embed.description.index(bob.mention) < embed.description.index(missing.mention)
+    assert "Group #2, Rank 1" in embed.description
+    assert "unknown signup time" in embed.description
 
 
 def test_build_dm_and_strike_embeds_skip_members_no_longer_in_guild() -> None:

@@ -102,6 +102,19 @@ class AnalyticsRepository:
             return None
         return " / ".join(class_lines)
 
+    async def get_player_signup_times(self, member_ids: list[int]) -> dict[int, datetime]:
+        if not member_ids:
+            return {}
+
+        docs = await self.player_queue_analytics.find({"user_id": {"$in": member_ids}}).to_list(length=None)
+        signup_times: dict[int, datetime] = {}
+        for doc in docs:
+            member_id = doc.get("user_id")
+            signup_time = doc.get("last_gate_signup")
+            if isinstance(member_id, int) and isinstance(signup_time, datetime):
+                signup_times[member_id] = signup_time
+        return signup_times
+
     async def decrement_player_signup(self, member_id: int) -> None:
         await self.player_queue_analytics.update_one(
             {"user_id": member_id},

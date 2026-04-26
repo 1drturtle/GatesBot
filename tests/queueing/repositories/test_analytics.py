@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 
 from queueing.repositories.analytics import AnalyticsRepository
 from tests.helpers.builders import make_member
@@ -81,3 +82,19 @@ def test_get_last_player_signup_text_returns_none_without_data() -> None:
     result = asyncio.run(repository.get_last_player_signup_text(10))
 
     assert result is None
+
+
+def test_get_player_signup_times_returns_current_member_timestamps() -> None:
+    older = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    newer = datetime(2026, 1, 2, tzinfo=timezone.utc)
+    repository, _ = make_repository(
+        [
+            {"user_id": 10, "last_gate_signup": older},
+            {"user_id": 20, "last_gate_signup": newer},
+            {"user_id": 30, "last_gate_signup": newer},
+        ]
+    )
+
+    result = asyncio.run(repository.get_player_signup_times([10, 20]))
+
+    assert result == {10: older, 20: newer}

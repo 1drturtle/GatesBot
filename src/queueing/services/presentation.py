@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 import disnake as discord
@@ -83,6 +84,43 @@ class QueuePresentationService:
                 inline=False,
             )
 
+        return embed
+
+    async def build_player_waitlist_embed(
+        self,
+        queue: Queue,
+        *,
+        signup_times: dict[int, datetime],
+    ) -> discord.Embed:
+        players = [
+            (group_index, group.tier, player)
+            for group_index, group in enumerate(queue.groups)
+            for player in group.players
+        ]
+        players.sort(
+            key=lambda item: (
+                signup_times.get(item[2].member.id) is None,
+                signup_times.get(item[2].member.id) or datetime.max.replace(tzinfo=timezone.utc),
+                item[2].member.display_name.casefold(),
+            )
+        )
+
+        lines: list[str] = []
+        for index, (group_index, tier, player) in enumerate(players, start=1):
+            signup_time = signup_times.get(player.member.id)
+            if signup_time is None:
+                wait_text = "unknown signup time"
+            else:
+                if signup_time.tzinfo is None:
+                    signup_time = signup_time.replace(tzinfo=timezone.utc)
+                timestamp = int(signup_time.timestamp())
+                wait_text = f"<t:{timestamp}:R> (`<t:{timestamp}:f>`)"
+
+            lines.append(f"**#{index}.** {player.mention} - {wait_text} - Group #{group_index + 1}, Rank {tier}")
+
+        embed = create_queue_embed(self.bot)
+        embed.title = "Queue Waitlist"
+        embed.description = "\n".join(lines) or "No players are currently in the queue."
         return embed
 
     async def build_dm_queue_embed(

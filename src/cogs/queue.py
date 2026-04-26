@@ -216,6 +216,19 @@ class QueueChannel(commands.Cog):
         embed.title = "Gate Sign-Up Queue"
         return await ctx.send(embed=embed)
 
+    @commands.command(name="queuewait", aliases=["waitlist", "queuewaitlist"])
+    @commands.check_any(has_role("Admin"), commands.is_owner())  # pyright: ignore[reportArgumentType]
+    async def send_queue_waitlist(self, ctx):
+        """Lists queued players by wait time, longest first. Requires the Admin role."""
+        queue = await self.queue_repo.load_for_guild(ctx.guild, channel_id=self.channel_id)
+        member_ids = [player.member.id for group in queue.groups for player in group.players]
+        signup_times = await self.services.analytics_repository.get_player_signup_times(member_ids)
+        embed = await self.services.presentation_service.build_player_waitlist_embed(
+            queue,
+            signup_times=signup_times,
+        )
+        return await ctx.send(embed=embed)
+
     @commands.command(name="remove")
     @commands.check_any(has_role("Assistant"), commands.is_owner())  # pyright: ignore[reportArgumentType]
     async def remove_queue_member(self, ctx, player: discord.Member):
