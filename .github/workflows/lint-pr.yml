@@ -2,12 +2,17 @@ name: CI
 
 on:
   pull_request:
+  push:
+    branches:
+      - main
+      - master
 
 permissions:
   contents: read
 
 jobs:
   checks:
+    if: github.event_name != 'push' || github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
 
     steps:
@@ -35,6 +40,7 @@ jobs:
         run: uv run pytest
 
   docker:
+    if: github.event_name != 'push' || github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
 
     steps:
@@ -53,3 +59,25 @@ jobs:
           tags: gatesbot:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  release:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.actor != 'github-actions[bot]'
+    needs:
+      - checks
+      - docker
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Release and tag with Cocogitto
+        uses: cocogitto/cocogitto-action@v3
+        with:
+          check: false
+          release: true
+          git-user: github-actions[bot]
+          git-user-email: 41898282+github-actions[bot]@users.noreply.github.com

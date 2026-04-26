@@ -1,0 +1,15 @@
+ignore_merge_commits = true
+branch_whitelist = ["main", "master"]
+tag_prefix = "v"
+pre_bump_hooks = [
+    "uv version {{version}}",
+]
+
+[changelog]
+path = "CHANGELOG.md"
+
+[git_hooks.commit-msg]
+script = """#!/bin/sh
+set -e
+cog verify --file "$1"
+"""
