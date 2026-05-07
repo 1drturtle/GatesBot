@@ -3,26 +3,16 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from typing import Any, Optional
+from typing import cast
 
 import disnake as discord
 
+from common.discord_utils import require_interaction_guild, require_text_channel
 from common.embeds import create_default_embed
+from queueing.repositories import ReadyQueueEntry
 from queueing.services import get_queue_services
 
 log = logging.getLogger(__name__)
-
-
-def _player_queue_view(bot):
-    from queueing.views.player_queue import PlayerQueueUI
-
-    return PlayerQueueUI(bot)
-
-
-def _dm_queue_view(bot):
-    from queueing.views.dm_queue import DMQueueUI
-
-    return DMQueueUI(bot)
 
 
 class ManageUIParent(discord.ui.View):
@@ -102,7 +92,7 @@ class PlayerQueueManageUI(ManageUIParent):
         self.add_item(self.group_selector)
 
     async def generate_menu(self, interaction) -> discord.Embed:
-        queue = await self.queue_from_guild(interaction.guild)
+        queue = await self.queue_from_guild(require_interaction_guild(interaction))
 
         embed = create_default_embed(interaction)
         embed.title = "GatesBot - Queue Manager"
@@ -114,8 +104,7 @@ class PlayerQueueManageUI(ManageUIParent):
     async def queue_refresh(self, button, inter: discord.MessageInteraction):
         del button
         await self.player_service.refresh_queue_message(
-            guild=inter.guild,  # pyright: ignore[reportArgumentType]
-            view_factory=lambda: _player_queue_view(self.bot),
+            guild=require_interaction_guild(inter),
         )
         await self.refresh_menu(inter)
 
@@ -124,13 +113,16 @@ class PlayerQueueManageUI(ManageUIParent):
         del button
         await inter.response.defer()
 
-        queue_channel: discord.TextChannel = inter.guild.get_channel(self.config.player_queue_channel_id)  # type: ignore
-        if queue_channel is None:
+        guild = cast(discord.Guild, inter.author)
+        actor = cast(discord.Member, inter.author)
+        raw_queue_channel = guild.get_channel(self.config.player_queue_channel_id)
+        if raw_queue_channel is None:
             return await inter.send("Queue channel not found.", ephemeral=True)
+        queue_channel = require_text_channel(guild, self.config.player_queue_channel_id, name="Queue")
 
-        player_role: discord.Role = discord.utils.find(
+        player_role: discord.Role | None = discord.utils.find(
             lambda role: role.name.lower() == "player",
-            inter.guild.roles,  # type: ignore
+            guild.roles,
         )
         if player_role is None:
             return await inter.send("Player role not found.", ephemeral=True)
@@ -140,9 +132,7 @@ class PlayerQueueManageUI(ManageUIParent):
         currently_locked = player_perms.send_messages is False
         should_lock = not currently_locked
 
-        if should_lock and not (
-            inter.author.id == self.bot.owner_id or any(True for role in inter.author.roles if role.name == "Admin")  # type: ignore
-        ):
+        if should_lock and not (actor.id == self.bot.owner_id or any(role.name == "Admin" for role in actor.roles)):
             return await inter.send("You are not allowed to use this function.", ephemeral=True)
 
         reason = await ManageUIParent.prompt_message(inter, "Specify a reason:") if should_lock else None
@@ -150,13 +140,12 @@ class PlayerQueueManageUI(ManageUIParent):
             reason = "Gate Assignments."
 
         await self.player_service.toggle_queue_lock(
-            guild=inter.guild,  # type: ignore
-            actor=inter.author,  # type: ignore
+            guild=guild,
+            actor=actor,
             queue_channel=queue_channel,
             player_role=player_role,
             should_lock=should_lock,
             reason=reason,
-            view_factory=lambda: _player_queue_view(self.bot),
             send_announcement=not should_lock,
         )
 
@@ -183,10 +172,9 @@ class PlayerQueueManageUI(ManageUIParent):
             return await inter.send("Invalid Rank or Group Size.", ephemeral=True)
 
         result = await self.player_service.shuffle_groups(
-            guild=inter.guild,  # type: ignore
+            guild=require_interaction_guild(inter),
             tier=tier,
             group_size=group_choice,
-            view_factory=lambda: _player_queue_view(self.bot),
         )
         if not result.success:
             return await inter.send(result.message, ephemeral=True)
@@ -225,10 +213,11 @@ class GroupSelector(discord.ui.StringSelect):
 
         dm_data = []
         for entry in entries:
-            member = inter.guild.get_member(entry.member_id)  # pyright: ignore[reportOptionalMemberAccess]
+            guild = require_interaction_guild(inter)
+            member = guild.get_member(entry.member_id)
             if member is None:
                 with contextlib.suppress(discord.NotFound, discord.Forbidden):
-                    member = await inter.guild.fetch_member(entry.member_id)  # pyright: ignore[reportOptionalMemberAccess]
+                    member = await guild.fetch_member(entry.member_id)
             if member is None:
                 continue
             dm_data.append((member, entry))
@@ -257,7 +246,7 @@ class GroupManagerUI(ManageUIParent):
         del interaction
 
     async def generate_menu(self, interaction) -> discord.Embed:
-        queue = await self.queue_from_guild(interaction.guild)
+        queue = await self.queue_from_guild(require_interaction_guild(interaction))
         self.group = queue.groups[self.group_num]
         assigned = f"<@{self.group.assigned}>" if self.group.assigned else "No."
 
@@ -290,9 +279,8 @@ class GroupManagerUI(ManageUIParent):
         del button
         await inter.response.defer()
         result = await self.player_service.toggle_group_lock(
-            guild=inter.guild,
+            guild=require_interaction_guild(inter),
             group_number=self.group_num + 1,
-            view_factory=lambda: _player_queue_view(self.bot),
         )
         if not result.success:
             return await inter.send(result.message, ephemeral=True)
@@ -314,11 +302,10 @@ class GroupManagerUI(ManageUIParent):
         who = self.dm_selector.selected
 
         result = await self.dm_service.assign_dm_to_group(
-            guild=inter.guild,  # pyright: ignore[reportArgumentType]
-            summoner=inter.author,  # pyright: ignore[reportArgumentType]
+            guild=require_interaction_guild(inter),
+            summoner=cast(discord.Member, inter.author),
             group_number=self.group_num + 1,
             dm_member_id=who.id,
-            view_factory=lambda: _dm_queue_view(self.bot),
             allow_reassignment=False,
         )
         if not result.success:
@@ -333,8 +320,8 @@ class DMSelector(discord.ui.StringSelect):
     def __init__(self, bot, queue, dm_queue_data):
         self.bot = bot
         self.queue = queue
-        self.dms: list[tuple[discord.Member, Any]] = dm_queue_data
-        self.selected: Optional[discord.Member] = None
+        self.dms: list[tuple[discord.Member, ReadyQueueEntry]] = dm_queue_data
+        self.selected: discord.Member | None = None
 
         options = []
         for dm, data in self.dms:

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
 
 import disnake as discord
+from pymongo.asynchronous.collection import AsyncCollection
 
 from common.embeds import create_queue_embed
+from common.types import MongoBackedBot
 from queueing.contracts import QueueRefreshResult, QueueViewState
 from queueing.messages import build_gate_assignment_message
 from queueing.models import Group, Queue
@@ -15,12 +16,12 @@ from queueing.repositories import QueueMetaRepository, ReadyQueueEntry
 async def replace_persistent_message(
     *,
     channel: discord.TextChannel,
-    meta_db: Any,
+    meta_db: AsyncCollection,
     meta_key: str,
     embed_title_prefix: str,
     bot_user_id: int,
     embed: discord.Embed,
-    view: Any,
+    view: discord.ui.View,
 ) -> discord.Message:
     old_message_id = await QueueMetaRepository(meta_db).resolve_message_id(
         channel=channel,
@@ -50,7 +51,7 @@ async def replace_persistent_message(
 
 async def send_gate_assignment(
     *,
-    bot: Any,
+    bot: MongoBackedBot,
     group: Group,
     group_number: int,
     dm_member: discord.Member,
@@ -66,7 +67,7 @@ async def send_gate_assignment(
 
 
 class QueuePresentationService:
-    def __init__(self, *, bot: Any, meta_repository: QueueMetaRepository):
+    def __init__(self, *, bot: MongoBackedBot, meta_repository: QueueMetaRepository):
         self.bot = bot
         self.meta_repository = meta_repository
         self.mark_repository = bot.mdb["player_marked"]
@@ -166,7 +167,7 @@ class QueuePresentationService:
         meta_key: str,
         embed_title_prefix: str,
         embed: discord.Embed,
-        view: Any,
+        view: discord.ui.View,
     ) -> QueueRefreshResult:
         message = await replace_persistent_message(
             channel=channel,

@@ -5,8 +5,7 @@ import re
 
 import disnake as discord
 import pendulum
-from disnake.ext import commands
-from disnake.ext import tasks
+from disnake.ext import commands, tasks
 
 import common.constants as constants
 from common.checks import has_role
@@ -16,7 +15,6 @@ from queueing.models import Queue
 from queueing.parsing import length_check
 from queueing.repositories import load_queue_for_guild
 from queueing.services import get_queue_services
-from queueing.views import PlayerQueueUI
 
 line_re = re.compile(r"\*\*in line:*\*\*", re.IGNORECASE)
 
@@ -90,7 +88,6 @@ class QueueChannel(commands.Cog):
             guild=message.guild,
             member=message.author,  # pyright: ignore[reportArgumentType]
             text=signup_text,
-            view_factory=lambda: PlayerQueueUI(self.bot),
             should_delete_duplicate_source=True,
         )
         if not result.success:
@@ -157,7 +154,6 @@ class QueueChannel(commands.Cog):
             gate_name=gate_name,
             group_number=group,
             reinforcement=bool(reinforcement),
-            view_factory=lambda: PlayerQueueUI(self.bot),
         )
         if not result.success:
             return await ctx.send(result.message)
@@ -170,7 +166,6 @@ class QueueChannel(commands.Cog):
         result = await self.player_service.leave_member(
             guild=ctx.guild,
             member_id=ctx.author.id,
-            view_factory=lambda: PlayerQueueUI(self.bot),
             decrement_signup_count=True,
             clear_marked=False,
         )
@@ -185,7 +180,6 @@ class QueueChannel(commands.Cog):
             original_group=original_group,
             member_id=player.id,
             new_group=new_group,
-            view_factory=lambda: PlayerQueueUI(self.bot),
         )
         if not result.success:
             return await ctx.send(result.message, delete_after=10)
@@ -200,7 +194,6 @@ class QueueChannel(commands.Cog):
             guild=ctx.guild,
             group_1=group_1,
             group_2=group_2,
-            view_factory=lambda: PlayerQueueUI(self.bot),
         )
         if not result.success:
             return await ctx.send(result.message, delete_after=3)
@@ -236,7 +229,6 @@ class QueueChannel(commands.Cog):
         result = await self.player_service.remove_member(
             guild=ctx.guild,
             member_id=player.id,
-            view_factory=lambda: PlayerQueueUI(self.bot),
         )
         if not result.success:
             return await ctx.send(
@@ -276,7 +268,6 @@ class QueueChannel(commands.Cog):
         result = await self.player_service.create_group_from_member(
             guild=ctx.guild,
             member_id=member.id,
-            view_factory=lambda: PlayerQueueUI(self.bot),
         )
         if not result.success:
             return await ctx.send(result.message, delete_after=10)
@@ -298,7 +289,6 @@ class QueueChannel(commands.Cog):
             guild=ctx.guild,
             tier=tier,
             group_size=group_size,
-            view_factory=lambda: PlayerQueueUI(self.bot),
         )
         if not result.success:
             return await ctx.send(result.message, delete_after=10)
@@ -539,7 +529,6 @@ class QueueChannel(commands.Cog):
             player_role=player_role,
             should_lock=True,
             reason=reason,
-            view_factory=lambda: PlayerQueueUI(self.bot),
             send_announcement=False,
         )
         log.info(f"Queue has been locked by {ctx.author.name}#{ctx.author.discriminator}")
@@ -551,7 +540,6 @@ class QueueChannel(commands.Cog):
         result = await self.player_service.toggle_group_lock(
             guild=ctx.guild,
             group_number=group_num,
-            view_factory=lambda: PlayerQueueUI(self.bot),
         )
         if not result.success:
             return await ctx.send(result.message)
@@ -578,7 +566,6 @@ class QueueChannel(commands.Cog):
             player_role=player_role,
             should_lock=False,
             reason=reason,
-            view_factory=lambda: PlayerQueueUI(self.bot),
             send_announcement=True,
         )
 
@@ -609,7 +596,6 @@ class QueueChannel(commands.Cog):
         """Empty the queue. Admin only."""
         await self.player_service.empty_queue(
             guild=ctx.guild,
-            view_factory=lambda: PlayerQueueUI(self.bot),
         )
 
         await ctx.send(f"Queue Emptied by {ctx.author.mention}", delete_after=10)

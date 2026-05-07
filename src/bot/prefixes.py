@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import Any
-
+import disnake as discord
 from disnake.ext import commands
 
 from common.settings import settings
+from common.types import MongoBackedBot
 
 
-async def get_prefix(client: Any, message: Any):
+async def get_prefix(client: MongoBackedBot, message: discord.Message) -> list[str]:
     if not message.guild:
         return commands.when_mentioned_or(settings.prefix)(client, message)
 

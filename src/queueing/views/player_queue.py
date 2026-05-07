@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+from typing import cast
 
 import disnake as discord
 
+from common.discord_utils import require_interaction_guild
 from queueing.services import get_queue_services
 from queueing.views.admin import PlayerQueueManageUI
 
@@ -38,11 +40,11 @@ class PlayerQueueJoinModal(discord.ui.Modal):
 
     async def callback(self, inter: discord.ModalInteraction):
         text = inter.text_values[JOIN_MODAL_INPUT_ID].strip()
+        member = cast(discord.Member, inter.author)
         result = await self.player_service.signup_from_text(
-            guild=inter.guild,  # pyright: ignore[reportArgumentType]
-            member=inter.author,  # pyright: ignore[reportArgumentType]
+            guild=require_interaction_guild(inter),
+            member=member,
             text=text,
-            view_factory=lambda: PlayerQueueUI(self.bot),
         )
 
         return await inter.send(result.message, ephemeral=True)
@@ -63,7 +65,7 @@ class PlayerQueueUI(discord.ui.View):
                 child.disabled = disabled
                 return
 
-    async def queue_from_guild(self, guild):
+    async def queue_from_guild(self, guild: discord.Guild):
         return await self.queue_repo.load_for_guild(
             guild,
             channel_id=self.services.config.player_queue_channel_id,
@@ -75,11 +77,12 @@ class PlayerQueueUI(discord.ui.View):
         custom_id=JOIN_BUTTON_CUSTOM_ID,
     )
     async def join_button(self, _: discord.ui.Button, inter: discord.MessageInteraction):
-        queue = await self.queue_from_guild(inter.guild)
+        member = cast(discord.Member, inter.author)
+        queue = await self.queue_from_guild(require_interaction_guild(inter))
         if queue.locked:
             return await inter.send("The queue is currently locked.", ephemeral=True)
 
-        default_text = await self.services.analytics_repository.get_last_player_signup_text(inter.author.id)
+        default_text = await self.services.analytics_repository.get_last_player_signup_text(member.id)
         return await inter.response.send_modal(PlayerQueueJoinModal(self.bot, default_text=default_text))
 
     @discord.ui.button(
@@ -88,10 +91,10 @@ class PlayerQueueUI(discord.ui.View):
         custom_id="gatesbot_playerqueue_leave",
     )
     async def leave_button(self, _: discord.ui.Button, inter: discord.MessageInteraction):
+        member = cast(discord.Member, inter.author)
         result = await self.player_service.leave_member(
-            guild=inter.guild,  # pyright: ignore[reportArgumentType]
-            member_id=inter.author.id,
-            view_factory=lambda: PlayerQueueUI(self.bot),
+            guild=require_interaction_guild(inter),
+            member_id=member.id,
             decrement_signup_count=True,
             clear_marked=True,
         )
@@ -105,11 +108,10 @@ class PlayerQueueUI(discord.ui.View):
         disabled=False,
     )
     async def manage_button(self, _, inter: discord.MessageInteraction):
-        queue = await self.queue_from_guild(inter.guild)
+        member = cast(discord.Member, inter.author)
+        queue = await self.queue_from_guild(require_interaction_guild(inter))
 
-        if not (
-            inter.author.id == self.bot.owner_id or any(True for role in inter.author.roles if role.name == "Assistant")  # pyright: ignore[reportAttributeAccessIssue]
-        ):
+        if not (member.id == self.bot.owner_id or any(role.name == "Assistant" for role in member.roles)):
             return await inter.send(
                 "You are not allowed to use this function.",
                 ephemeral=True,
@@ -125,7 +127,8 @@ class PlayerQueueUI(discord.ui.View):
         custom_id="gatesbot_playerqueue_claim",
     )
     async def claim_button(self, _, inter: discord.MessageInteraction):
-        if not (inter.author.id == self.bot.owner_id or any(True for role in inter.author.roles if role.name == "DM")):  # pyright: ignore[reportAttributeAccessIssue]
+        member = cast(discord.Member, inter.author)
+        if not (member.id == self.bot.owner_id or any(role.name == "DM" for role in member.roles)):
             return await inter.send(
                 "You are not allowed to use this function.",
                 ephemeral=True,
@@ -134,10 +137,9 @@ class PlayerQueueUI(discord.ui.View):
         await inter.response.defer()
 
         result = await self.player_service.claim_group(
-            guild=inter.guild,  # pyright: ignore[reportArgumentType]
-            claimant=inter.author,  # pyright: ignore[reportArgumentType]
+            guild=require_interaction_guild(inter),
+            claimant=member,
             use_assignment=True,
-            view_factory=lambda: PlayerQueueUI(self.bot),
         )
 
         if not result.success:

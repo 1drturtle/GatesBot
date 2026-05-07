@@ -32,7 +32,7 @@ def test_signup_prefers_existing_group_and_records_analytics() -> None:
     service, _, analytics, _ = make_player_service(queue, testing=False)
     message = SimpleNamespace(guild=FakeGuild(1, members=[player.member]), author=player.member, id=10)
 
-    result = asyncio.run(service.signup_from_message(message=message, player=player, view_factory=object))
+    result = asyncio.run(service.signup_from_message(message=message, player=player))
 
     assert result.success is True
     assert result.group_number == 1
@@ -52,7 +52,6 @@ def test_signup_from_text_parses_player_records_raw_text_and_refreshes() -> None
             guild=guild,
             member=member,
             text="Champion Fighter 5",
-            view_factory=object,
         )
     )
 
@@ -79,7 +78,6 @@ def test_signup_from_text_blocks_duplicates_with_optional_source_delete_flag() -
             guild=FakeGuild(1, members=[player.member]),
             member=player.member,
             text="Fighter 5",
-            view_factory=object,
             should_delete_duplicate_source=True,
         )
     )
@@ -99,8 +97,8 @@ def test_signup_blocks_duplicates_outside_testing_but_allows_in_testing() -> Non
     testing_service, _, testing_analytics, _ = make_player_service(testing_queue, testing=True)
     message = SimpleNamespace(guild=FakeGuild(1, members=[player.member]), author=player.member, id=10)
 
-    blocked = asyncio.run(production_service.signup_from_message(message=message, player=player, view_factory=object))
-    allowed = asyncio.run(testing_service.signup_from_message(message=message, player=player, view_factory=object))
+    blocked = asyncio.run(production_service.signup_from_message(message=message, player=player))
+    allowed = asyncio.run(testing_service.signup_from_message(message=message, player=player))
 
     assert blocked.success is False
     assert blocked.should_delete_source_message is True
@@ -119,7 +117,6 @@ def test_leave_member_removes_player_and_optionally_updates_analytics() -> None:
         service.leave_member(
             guild=FakeGuild(1, members=[player.member]),
             member_id=player.member.id,
-            view_factory=object,
             decrement_signup_count=True,
             clear_marked=True,
         )
@@ -139,7 +136,6 @@ def test_leave_member_reports_missing_player_without_saving() -> None:
         service.leave_member(
             guild=FakeGuild(1),
             member_id=999,
-            view_factory=object,
             decrement_signup_count=True,
             clear_marked=True,
         )
@@ -160,7 +156,6 @@ def test_move_member_validates_groups_and_moves_player() -> None:
             original_group=1,
             member_id=player.member.id,
             new_group=2,
-            view_factory=object,
         )
     )
 
@@ -176,7 +171,7 @@ def test_merge_groups_combines_second_group_into_first() -> None:
     queue = make_queue(make_group(alice), make_group(bob))
     service, _, _, _ = make_player_service(queue)
 
-    result = asyncio.run(service.merge_groups(guild=FakeGuild(1), group_1=1, group_2=2, view_factory=object))
+    result = asyncio.run(service.merge_groups(guild=FakeGuild(1), group_1=1, group_2=2))
 
     assert result.success is True
     assert len(queue.groups) == 1
@@ -193,7 +188,6 @@ def test_create_group_from_member_moves_player_after_current_group() -> None:
         service.create_group_from_member(
             guild=FakeGuild(1, members=[alice.member, bob.member]),
             member_id=bob.member.id,
-            view_factory=object,
         )
     )
 
@@ -210,7 +204,7 @@ def test_shuffle_groups_preserves_locked_groups_and_repacks_selected_tier(monkey
     service, _, _, _ = make_player_service(queue)
     monkeypatch.setattr("queueing.services.player_queue.random.sample", lambda items, count: list(reversed(items)))
 
-    result = asyncio.run(service.shuffle_groups(guild=FakeGuild(1), tier=alice.tier, group_size=2, view_factory=object))
+    result = asyncio.run(service.shuffle_groups(guild=FakeGuild(1), tier=alice.tier, group_size=2))
 
     assert result.success is True
     assert queue.groups[0] is locked
@@ -226,12 +220,8 @@ def test_claim_group_handles_invalid_gate_and_successful_command_path() -> None:
     guild = FakeGuild(1, members=[dm, player.member], channels=[summons, assignments])
     service, _, analytics, _ = make_player_service(queue, gate={"name": "alpha", "emoji": ":a:", "owner": dm.id})
 
-    invalid = asyncio.run(
-        service.claim_group(guild=guild, claimant=dm, gate_name="missing", group_number=1, view_factory=object)
-    )
-    valid = asyncio.run(
-        service.claim_group(guild=guild, claimant=dm, gate_name="alpha", group_number=1, view_factory=object)
-    )
+    invalid = asyncio.run(service.claim_group(guild=guild, claimant=dm, gate_name="missing", group_number=1))
+    valid = asyncio.run(service.claim_group(guild=guild, claimant=dm, gate_name="alpha", group_number=1))
 
     assert invalid.success is False
     assert valid.success is True
@@ -253,10 +243,17 @@ def test_claim_group_can_use_existing_assignment() -> None:
     group.assigned = dm.id
     queue = make_queue(group)
     config = QueueRuntimeConfig.from_environment("production")
-    guild = FakeGuild(1, members=[dm, player.member], channels=[FakeChannel(config.summons_channel_id)])
+    guild = FakeGuild(
+        1,
+        members=[dm, player.member],
+        channels=[
+            FakeChannel(config.summons_channel_id),
+            FakeChannel(config.gate_assignments_channel_id),
+        ],
+    )
     service, _, _, _ = make_player_service(queue, gate={"name": "alpha", "emoji": ":a:", "owner": dm.id})
 
-    result = asyncio.run(service.claim_group(guild=guild, claimant=dm, use_assignment=True, view_factory=object))
+    result = asyncio.run(service.claim_group(guild=guild, claimant=dm, use_assignment=True))
 
     assert result.success is True
     assert result.claimed_group_number == 1
@@ -277,9 +274,10 @@ def test_refresh_queue_message_removes_empty_groups_and_refreshes_persistent_mes
         gate_repository=InMemoryGateRepository(),
         analytics_repository=make_analytics(),
         presentation_service=presentation,
+        view_factory=object,
     )
 
-    result = asyncio.run(service.refresh_queue_message(guild=guild, queue=queue, view_factory=object))
+    result = asyncio.run(service.refresh_queue_message(guild=guild, queue=queue))
 
     assert result.message_id == 1
     assert queue.groups == [queue.groups[0]]
@@ -295,6 +293,8 @@ def test_refresh_queue_message_disables_join_button_when_queue_is_locked() -> No
     channel = FakeChannel(config.player_queue_channel_id)
     guild = FakeGuild(1, members=[player.member], channels=[channel])
     presentation = make_presentation()
+    join_button = SimpleNamespace(custom_id="gatesbot_playerqueue_join", disabled=False)
+    view = SimpleNamespace(children=[join_button])
     service = PlayerQueueService(
         bot=make_bot(),
         config=config,
@@ -302,11 +302,10 @@ def test_refresh_queue_message_disables_join_button_when_queue_is_locked() -> No
         gate_repository=InMemoryGateRepository(),
         analytics_repository=make_analytics(),
         presentation_service=presentation,
+        view_factory=lambda: view,
     )
-    join_button = SimpleNamespace(custom_id="gatesbot_playerqueue_join", disabled=False)
-    view = SimpleNamespace(children=[join_button])
 
-    asyncio.run(service.refresh_queue_message(guild=guild, queue=queue, view_factory=lambda: view))
+    asyncio.run(service.refresh_queue_message(guild=guild, queue=queue))
 
     assert join_button.disabled is True
     assert presentation.refresh_queue_message.await_args.kwargs["view"] is view
@@ -316,8 +315,8 @@ def test_toggle_group_lock_flips_group_state() -> None:
     queue = make_queue(make_group(make_player(1, "Alice")))
     service, _, _, _ = make_player_service(queue)
 
-    locked = asyncio.run(service.toggle_group_lock(guild=FakeGuild(1), group_number=1, view_factory=object))
-    unlocked = asyncio.run(service.toggle_group_lock(guild=FakeGuild(1), group_number=1, view_factory=object))
+    locked = asyncio.run(service.toggle_group_lock(guild=FakeGuild(1), group_number=1))
+    unlocked = asyncio.run(service.toggle_group_lock(guild=FakeGuild(1), group_number=1))
 
     assert locked.is_locked is True
     assert unlocked.is_locked is False
@@ -339,7 +338,6 @@ def test_toggle_queue_lock_updates_channel_permissions_and_queue_state() -> None
             player_role=player_role,
             should_lock=True,
             reason="maintenance",
-            view_factory=object,
             send_announcement=False,
         )
     )
@@ -368,7 +366,6 @@ def test_toggle_queue_unlock_marks_players_and_removes_lock_notice() -> None:
             player_role=make_role(1, "Player"),
             should_lock=False,
             reason=None,
-            view_factory=object,
             send_announcement=False,
         )
     )

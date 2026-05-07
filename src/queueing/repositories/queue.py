@@ -3,8 +3,9 @@ from __future__ import annotations
 from typing import Any, TypeVar
 
 import disnake as discord
+from pymongo.asynchronous.collection import AsyncCollection
 
-from queueing.documents import QueueDocument
+from queueing.documents import QueueDocument, StoredQueueDocument
 from queueing.models import Queue
 
 QueueType = TypeVar("QueueType", bound=Queue)
@@ -20,7 +21,7 @@ def build_empty_queue_document(guild_id: int, channel_id: int | None = None) -> 
 
 
 class QueueRepository:
-    def __init__(self, collection: Any, *, default_channel_id: int | None = None):
+    def __init__(self, collection: AsyncCollection, *, default_channel_id: int | None = None):
         self.collection = collection
         self.default_channel_id = default_channel_id
 
@@ -40,19 +41,14 @@ class QueueRepository:
         if raw is None:
             raw_document = build_empty_queue_document(guild.id, resolved_channel_id)
         else:
-            raw_document = dict(raw)
-            if "server_id" not in raw_document and "guild_id" in raw_document:
-                raw_document["server_id"] = raw_document["guild_id"]
-            if raw_document.get("channel_id") is None and resolved_channel_id is not None:
-                raw_document["channel_id"] = resolved_channel_id
+            raw_document = self._normalize_document(raw, guild.id, resolved_channel_id)
 
-        queue = queue_type.from_dict(guild, raw_document)  # pyright: ignore[reportArgumentType]
+        queue = queue_type.from_dict(guild, raw_document)
         queue.groups.sort(key=lambda group: group.tier)
         return queue  # pyright: ignore[reportReturnType]
 
     async def save(self, queue: Queue) -> None:
-        payload = queue.to_dict()
-        payload["guild_id"] = queue.server_id  # pyright: ignore[reportGeneralTypeIssues]
+        payload: StoredQueueDocument = {**queue.to_dict(), "guild_id": queue.server_id}
         selector = self._build_save_selector(queue.server_id, queue.channel_id)
         await self.collection.update_one(
             selector,
@@ -62,9 +58,9 @@ class QueueRepository:
 
     @staticmethod
     def _choose_preferred_document(
-        docs: list[dict[str, Any]],
+        docs: list[StoredQueueDocument],
         channel_id: int | None,
-    ) -> dict[str, Any] | None:
+    ) -> StoredQueueDocument | None:
         if not docs:
             return None
 
@@ -77,6 +73,23 @@ class QueueRepository:
                     return doc
 
         return max(docs, key=lambda item: len(item.get("groups", [])))
+
+    @staticmethod
+    def _normalize_document(
+        raw: StoredQueueDocument,
+        guild_id: int,
+        channel_id: int | None,
+    ) -> QueueDocument:
+        resolved_channel_id = raw.get("channel_id")
+        if resolved_channel_id is None and channel_id is not None:
+            resolved_channel_id = channel_id
+
+        return {
+            "groups": raw.get("groups", []),
+            "server_id": raw.get("server_id", raw.get("guild_id", guild_id)),
+            "channel_id": resolved_channel_id,
+            "locked": raw.get("locked", False),
+        }
 
     @staticmethod
     def _build_save_selector(server_id: int, channel_id: int | None) -> dict[str, Any]:
@@ -96,7 +109,7 @@ class QueueRepository:
 
 
 async def load_queue_for_guild(
-    db: Any,
+    db: AsyncCollection,
     guild: discord.Guild,
     *,
     queue_type: type[QueueType] = Queue,

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
+import disnake as discord
+
+from common.types import MongoBackedBot
 from queueing.config import QueueRuntimeConfig
 from queueing.repositories import (
     AnalyticsRepository,
@@ -16,6 +18,25 @@ from queueing.services.dm_queue import DMQueueService
 from queueing.services.player_queue import PlayerQueueService
 from queueing.services.presentation import QueuePresentationService
 from queueing.services.strike_queue import StrikeQueueService
+
+
+# functions that must exist to prevent circular imports. only called one due to caching
+def _player_queue_view(bot: MongoBackedBot) -> discord.ui.View:
+    from queueing.views.player_queue import PlayerQueueUI
+
+    return PlayerQueueUI(bot)
+
+
+def _dm_queue_view(bot: MongoBackedBot) -> discord.ui.View:
+    from queueing.views.dm_queue import DMQueueUI
+
+    return DMQueueUI(bot)
+
+
+def _strike_queue_view(bot: MongoBackedBot) -> discord.ui.View:
+    from queueing.views.strike_queue import StrikeQueueUI
+
+    return StrikeQueueUI(bot)
 
 
 @dataclass(slots=True)
@@ -36,7 +57,7 @@ class QueueServices:
 _SERVICE_CACHE_ATTR = "_queue_services"
 
 
-def get_queue_services(bot: Any) -> QueueServices:
+def get_queue_services(bot: MongoBackedBot) -> QueueServices:
     cached = getattr(bot, _SERVICE_CACHE_ATTR, None)
     if cached is not None:
         return cached
@@ -60,6 +81,7 @@ def get_queue_services(bot: Any) -> QueueServices:
         gate_repository=gate_repository,
         analytics_repository=analytics_repository,
         presentation_service=presentation_service,
+        view_factory=lambda: _player_queue_view(bot),
     )
     dm_queue_service = DMQueueService(
         bot=bot,
@@ -68,6 +90,7 @@ def get_queue_services(bot: Any) -> QueueServices:
         queue_repository=queue_repository,
         analytics_repository=analytics_repository,
         presentation_service=presentation_service,
+        view_factory=lambda: _dm_queue_view(bot),
     )
     strike_queue_service = StrikeQueueService(
         bot=bot,
@@ -76,6 +99,7 @@ def get_queue_services(bot: Any) -> QueueServices:
         gate_repository=gate_repository,
         analytics_repository=analytics_repository,
         presentation_service=presentation_service,
+        view_factory=lambda: _strike_queue_view(bot),
     )
 
     services = QueueServices(

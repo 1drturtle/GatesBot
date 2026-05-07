@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Callable, cast
+from typing import Callable, cast
 
 import disnake as discord
 
+from common.discord_utils import require_message_guild, require_text_channel
+from common.types import MongoBackedBot
 from queueing.config import QueueRuntimeConfig
 from queueing.contracts import AssignResult, LeaveResult, QueueRefreshResult, QueueViewState, SignupResult
 from queueing.documents import GroupDocument
@@ -16,12 +18,13 @@ class DMQueueService:
     def __init__(
         self,
         *,
-        bot: Any,
+        bot: MongoBackedBot,
         config: QueueRuntimeConfig,
         dm_queue_repository: DMQueueRepository,
         queue_repository: QueueRepository,
         analytics_repository: AnalyticsRepository,
         presentation_service: QueuePresentationService,
+        view_factory: Callable[[], discord.ui.View],
     ):
         self.bot = bot
         self.config = config
@@ -29,13 +32,13 @@ class DMQueueService:
         self.queue_repository = queue_repository
         self.analytics_repository = analytics_repository
         self.presentation_service = presentation_service
+        self.view_factory = view_factory
 
     async def signup_from_message(
         self,
         *,
         message: discord.Message,
         text: str,
-        view_factory: Callable[[], Any],
     ) -> SignupResult:
         await self.dm_queue_repository.upsert_ready(
             member_id=message.author.id,
@@ -43,7 +46,7 @@ class DMQueueService:
             message_id=message.id,
         )
         await self.analytics_repository.record_dm_queue_signup(message.author.id, delta=1)
-        await self.refresh_queue_message(guild=message.guild, view_factory=view_factory)  # pyright: ignore[reportArgumentType]
+        await self.refresh_queue_message(guild=require_message_guild(message))
         return SignupResult(success=True, message="Signed up for DM queue.", queue_updated=True)
 
     async def update_member(
@@ -52,10 +55,9 @@ class DMQueueService:
         guild: discord.Guild,
         member_id: int,
         text: str,
-        view_factory: Callable[[], Any],
     ) -> SignupResult:
         await self.dm_queue_repository.update_text(member_id=member_id, text=text)
-        await self.refresh_queue_message(guild=guild, view_factory=view_factory)
+        await self.refresh_queue_message(guild=guild)
         return SignupResult(success=True, message="DM queue entry updated.", queue_updated=True)
 
     async def leave_member(
@@ -63,7 +65,6 @@ class DMQueueService:
         *,
         guild: discord.Guild,
         member_id: int,
-        view_factory: Callable[[], Any],
         adjust_signup_count: bool,
     ) -> LeaveResult:
         removed = await self.dm_queue_repository.remove_member(member_id)
@@ -71,7 +72,7 @@ class DMQueueService:
             return LeaveResult(success=False, message="You were not in the DM queue, or an error occurred.")
         if adjust_signup_count:
             await self.analytics_repository.record_dm_queue_signup(member_id, delta=-1)
-        await self.refresh_queue_message(guild=guild, view_factory=view_factory)
+        await self.refresh_queue_message(guild=guild)
         return LeaveResult(success=True, message="You have left the DM queue.", queue_updated=True)
 
     async def assign_dm_to_group(
@@ -80,7 +81,6 @@ class DMQueueService:
         guild: discord.Guild,
         summoner: discord.Member,
         group_number: int,
-        view_factory: Callable[[], Any],
         queue_number: int | None = None,
         dm_member_id: int | None = None,
         allow_reassignment: bool = True,
@@ -128,15 +128,20 @@ class DMQueueService:
         group.assigned = dm_member.id
         await self.queue_repository.save(queue)
 
-        assignment_channel = guild.get_channel(self.config.dm_queue_assignment_channel_id)
-        if assignment_channel is None:
+        raw_assignment_channel = guild.get_channel(self.config.dm_queue_assignment_channel_id)
+        if raw_assignment_channel is None:
             return AssignResult(success=False, message="DM assignment channel not found.")
+        assignment_channel = require_text_channel(
+            guild,
+            self.config.dm_queue_assignment_channel_id,
+            name="DM assignment",
+        )
 
         await self.presentation_service.send_gate_assignment(
             group=group,
             group_number=group_number,
             dm_member=dm_member,
-            assignment_channel=assignment_channel,  # pyright: ignore[reportArgumentType]
+            assignment_channel=assignment_channel,
         )
 
         await self.analytics_repository.record_dm_assignment(
@@ -147,7 +152,7 @@ class DMQueueService:
         await self.analytics_repository.increment_dm_assignments(dm_member.id)
 
         await self.dm_queue_repository.remove_member(dm_member.id)
-        await self.refresh_queue_message(guild=guild, view_factory=view_factory)
+        await self.refresh_queue_message(guild=guild)
 
         return AssignResult(
             success=True,
@@ -164,18 +169,15 @@ class DMQueueService:
         self,
         *,
         guild: discord.Guild,
-        view_factory: Callable[[], Any],
     ) -> QueueRefreshResult:
         entries = await self.dm_queue_repository.list_entries()
-        channel = guild.get_channel(self.config.dm_queue_channel_id)
-        if channel is None:
-            raise ValueError("DM queue channel not found")
+        channel = require_text_channel(guild, self.config.dm_queue_channel_id, name="DM queue")
 
         embed = await self.presentation_service.build_dm_queue_embed(guild=guild, entries=entries)
         return await self.presentation_service.refresh_queue_message(
-            channel=channel,  # pyright: ignore[reportArgumentType]
+            channel=channel,
             meta_key=f"dm_queue:{self.config.dm_queue_channel_id}",
             embed_title_prefix="DM Queue",
             embed=embed,
-            view=view_factory(),
+            view=self.view_factory(),
         )

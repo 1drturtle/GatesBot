@@ -5,8 +5,7 @@ from typing import List
 
 import disnake as discord
 import pendulum
-from disnake.ext import commands
-from disnake.ext import tasks
+from disnake.ext import commands, tasks
 
 import common.constants as constants
 from common.checks import has_role

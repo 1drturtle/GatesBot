@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 import disnake as discord
 from disnake.ext import commands
@@ -45,7 +45,7 @@ class Utility(commands.Cog):
         if ctx.bot.is_ready():
             embed.add_field(
                 name="Ready Uptime",
-                value=f"{time_to_readable(datetime.utcnow() - self.bot.ready_time)}",
+                value=f"{time_to_readable(datetime.now(UTC) - self.bot.ready_time)}",
             )
         return await ctx.send(embed=embed)
 

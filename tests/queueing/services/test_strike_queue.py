@@ -23,9 +23,9 @@ def test_signup_update_and_leave_mutate_repository_and_refresh() -> None:
     service, repo, _, _, _ = make_strike_service(entries=[make_ready_entry(10, "old")])
     message = SimpleNamespace(author=member, guild=FakeGuild(1, members=[member]), id=99)
 
-    signup = asyncio.run(service.signup_from_message(message=message, text="ready", view_factory=object))
-    update = asyncio.run(service.update_member(guild=FakeGuild(1), member_id=10, text="new", view_factory=object))
-    leave = asyncio.run(service.leave_member(guild=FakeGuild(1), member_id=10, view_factory=object))
+    signup = asyncio.run(service.signup_from_message(message=message, text="ready"))
+    update = asyncio.run(service.update_member(guild=FakeGuild(1), member_id=10, text="new"))
+    leave = asyncio.run(service.leave_member(guild=FakeGuild(1), member_id=10))
 
     assert signup.success is True
     assert update.success is True
@@ -37,7 +37,7 @@ def test_signup_update_and_leave_mutate_repository_and_refresh() -> None:
 def test_leave_member_reports_missing_entry_without_refresh() -> None:
     service, _, _, _, _ = make_strike_service()
 
-    result = asyncio.run(service.leave_member(guild=FakeGuild(1), member_id=10, view_factory=object))
+    result = asyncio.run(service.leave_member(guild=FakeGuild(1), member_id=10))
 
     assert result.success is False
     service.refresh_queue_message.assert_not_awaited()
@@ -59,7 +59,6 @@ def test_assign_strike_team_validates_entries_numbers_and_gate(entries, queue_nu
             guild=FakeGuild(1, members=[make_member(10, "Striker")]),
             queue_numbers=queue_numbers,
             gate_name="alpha",
-            view_factory=object,
         )
     )
 
@@ -78,7 +77,6 @@ def test_assign_strike_team_rejects_unavailable_people_and_missing_channel() -> 
             guild=FakeGuild(1),
             queue_numbers=[1],
             gate_name="alpha",
-            view_factory=object,
         )
     )
     missing_channel = asyncio.run(
@@ -86,7 +84,6 @@ def test_assign_strike_team_rejects_unavailable_people_and_missing_channel() -> 
             guild=FakeGuild(1, members=[make_member(10, "Striker")]),
             queue_numbers=[1],
             gate_name="alpha",
-            view_factory=object,
         )
     )
 
@@ -106,9 +103,7 @@ def test_assign_strike_team_sends_message_removes_entries_and_records_analytics(
     assignment_channel = FakeChannel(service.config.strike_queue_assignment_channel_id)
     guild = FakeGuild(1, members=[member], channels=[assignment_channel])
 
-    result = asyncio.run(
-        service.assign_strike_team(guild=guild, queue_numbers=[1], gate_name="alpha", view_factory=object)
-    )
+    result = asyncio.run(service.assign_strike_team(guild=guild, queue_numbers=[1], gate_name="alpha"))
 
     assert result.success is True
     assert result.assigned_member_id == member.id
@@ -138,7 +133,8 @@ def test_refresh_queue_message_raises_when_channel_missing() -> None:
         gate_repository=InMemoryGateRepository(),
         analytics_repository=make_analytics(),
         presentation_service=make_presentation(),
+        view_factory=object,
     )
 
     with pytest.raises(ValueError, match="Strike queue channel not found"):
-        asyncio.run(service.refresh_queue_message(guild=FakeGuild(1), view_factory=object))
+        asyncio.run(service.refresh_queue_message(guild=FakeGuild(1)))

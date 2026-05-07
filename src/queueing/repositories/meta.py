@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from typing import Any
-
 import disnake as discord
+from pymongo.asynchronous.collection import AsyncCollection
 
 from common.discord_utils import find_or_migrate_queue_message_id
 
 
 class QueueMetaRepository:
-    def __init__(self, collection: Any):
+    def __init__(self, collection: AsyncCollection):
         self.collection = collection
 
     async def get_message_id(self, key: str) -> int | None:

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import disnake as discord
+from pymongo.asynchronous.database import AsyncDatabase
 
-from queueing.documents import GateDocument, GroupDocument
+from queueing.documents import ClassLevelDocument, DMAnalyticsDocument, GateDocument, GroupDocument
 
 
 def _format_class_level(class_level: Any) -> str | None:
@@ -31,7 +32,7 @@ def _format_class_level(class_level: Any) -> str | None:
 
 
 class AnalyticsRepository:
-    def __init__(self, mdb: Any):
+    def __init__(self, mdb: AsyncDatabase):
         self.player_queue_analytics = mdb["queue_analytics"]
         self.gate_group_analytics = mdb["gate_groups_analytics"]
         self.dm_analytics = mdb["dm_analytics"]
@@ -45,7 +46,7 @@ class AnalyticsRepository:
         *,
         member: discord.Member,
         total_level: int,
-        levels: list[dict[str, Any]],
+        levels: list[ClassLevelDocument],
         signup_text: str | None = None,
     ) -> None:
         set_data: dict[str, Any] = {
@@ -140,7 +141,7 @@ class AnalyticsRepository:
     async def set_unlock_timestamp(self) -> None:
         await self.player_marked.update_one(
             {"_mark": True},
-            {"$set": {"_mark": True, "timestamp": datetime.utcnow()}},
+            {"$set": {"_mark": True, "timestamp": datetime.now(UTC)}},
             upsert=True,
         )
 
@@ -188,7 +189,7 @@ class AnalyticsRepository:
             }
         )
 
-    async def get_dm_info(self, dm_id: int) -> dict[str, Any] | None:
+    async def get_dm_info(self, dm_id: int) -> DMAnalyticsDocument | None:
         return await self.dm_analytics.find_one({"_id": dm_id})
 
     async def record_claimed_group(
@@ -207,7 +208,7 @@ class AnalyticsRepository:
         await self.gate_group_analytics.insert_one(
             {
                 "gate_name": gate_name,
-                "date_summoned": datetime.utcnow(),
+                "date_summoned": datetime.now(UTC),
                 "dm_id": claimed_by,
                 "tier": tier,
                 "levels": levels,
@@ -264,7 +265,7 @@ class AnalyticsRepository:
                 "dm": dm_id,
                 "gate_data": gate_data,
                 "claimed": False,
-                "summonDate": datetime.utcnow(),
+                "summonDate": datetime.now(UTC),
             }
         )
 

@@ -3,8 +3,8 @@ import datetime
 
 from bot.bootstrap import COGS, build_bot, register_persistent_views
 from bot.logging_setup import configure_logging
-from common.settings import settings
 from common.discord_utils import try_delete
+from common.settings import settings
 
 bot = build_bot()
 log = configure_logging()

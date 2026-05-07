@@ -1,19 +1,21 @@
 from __future__ import annotations
 
-from typing import Any
+from pymongo.asynchronous.collection import AsyncCollection
+
+from queueing.documents import RegisteredGateDocument
 
 
 class GateRepository:
-    def __init__(self, collection: Any):
+    def __init__(self, collection: AsyncCollection):
         self.collection = collection
 
-    async def list_gates(self) -> list[dict[str, Any]]:
+    async def list_gates(self) -> list[RegisteredGateDocument]:
         return await self.collection.find().to_list(length=None)
 
-    async def get_by_name(self, gate_name: str) -> dict[str, Any] | None:
+    async def get_by_name(self, gate_name: str) -> RegisteredGateDocument | None:
         return await self.collection.find_one({"name": gate_name.lower()})
 
-    async def get_by_owner(self, owner_id: int) -> dict[str, Any] | None:
+    async def get_by_owner(self, owner_id: int) -> RegisteredGateDocument | None:
         return await self.collection.find_one({"owner": owner_id})
 
     async def set_owner(self, gate_name: str, owner_id: int) -> None:

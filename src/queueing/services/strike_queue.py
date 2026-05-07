@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Callable, cast
+from typing import Callable
 
 import disnake as discord
 
+from common.discord_utils import require_message_guild, require_text_channel
+from common.types import MongoBackedBot
 from queueing.config import QueueRuntimeConfig
 from queueing.contracts import AssignResult, LeaveResult, QueueRefreshResult, QueueViewState, SignupResult
-from queueing.documents import GateDocument
 from queueing.repositories import AnalyticsRepository, GateRepository, ReadyQueueEntry, StrikeQueueRepository
 from queueing.services.presentation import QueuePresentationService
 
@@ -15,12 +16,13 @@ class StrikeQueueService:
     def __init__(
         self,
         *,
-        bot: Any,
+        bot: MongoBackedBot,
         config: QueueRuntimeConfig,
         strike_queue_repository: StrikeQueueRepository,
         gate_repository: GateRepository,
         analytics_repository: AnalyticsRepository,
         presentation_service: QueuePresentationService,
+        view_factory: Callable[[], discord.ui.View],
     ):
         self.bot = bot
         self.config = config
@@ -28,20 +30,20 @@ class StrikeQueueService:
         self.gate_repository = gate_repository
         self.analytics_repository = analytics_repository
         self.presentation_service = presentation_service
+        self.view_factory = view_factory
 
     async def signup_from_message(
         self,
         *,
         message: discord.Message,
         text: str,
-        view_factory: Callable[[], Any],
     ) -> SignupResult:
         await self.strike_queue_repository.upsert_ready(
             member_id=message.author.id,
             text=text,
             message_id=message.id,
         )
-        await self.refresh_queue_message(guild=message.guild, view_factory=view_factory)  # pyright: ignore[reportArgumentType]
+        await self.refresh_queue_message(guild=require_message_guild(message))
         return SignupResult(success=True, message="Signed up for strike queue.", queue_updated=True)
 
     async def update_member(
@@ -50,10 +52,9 @@ class StrikeQueueService:
         guild: discord.Guild,
         member_id: int,
         text: str,
-        view_factory: Callable[[], Any],
     ) -> SignupResult:
         await self.strike_queue_repository.update_text(member_id=member_id, text=text)
-        await self.refresh_queue_message(guild=guild, view_factory=view_factory)
+        await self.refresh_queue_message(guild=guild)
         return SignupResult(success=True, message="Strike queue entry updated.", queue_updated=True)
 
     async def leave_member(
@@ -61,13 +62,12 @@ class StrikeQueueService:
         *,
         guild: discord.Guild,
         member_id: int,
-        view_factory: Callable[[], Any],
     ) -> LeaveResult:
         removed = await self.strike_queue_repository.remove_member(member_id)
         if not removed:
             return LeaveResult(success=False, message="You were not in the Strike queue, or an error occurred.")
 
-        await self.refresh_queue_message(guild=guild, view_factory=view_factory)
+        await self.refresh_queue_message(guild=guild)
         return LeaveResult(success=True, message="You have left the Strike queue.", queue_updated=True)
 
     async def assign_strike_team(
@@ -76,7 +76,6 @@ class StrikeQueueService:
         guild: discord.Guild,
         queue_numbers: list[int],
         gate_name: str,
-        view_factory: Callable[[], Any],
     ) -> AssignResult:
         entries = await self.strike_queue_repository.list_entries()
         if not entries:
@@ -105,9 +104,14 @@ class StrikeQueueService:
         if not people:
             return AssignResult(success=False, message="No selected Strike Team members are available.")
 
-        assignment_channel = guild.get_channel(self.config.strike_queue_assignment_channel_id)
-        if assignment_channel is None:
+        raw_assignment_channel = guild.get_channel(self.config.strike_queue_assignment_channel_id)
+        if raw_assignment_channel is None:
             return AssignResult(success=False, message="Strike assignment channel not found.")
+        assignment_channel = require_text_channel(
+            guild,
+            self.config.strike_queue_assignment_channel_id,
+            name="Strike assignment",
+        )
 
         message = (
             f"{' '.join([member.mention for member in people])}\n"
@@ -115,7 +119,7 @@ class StrikeQueueService:
             f" Head to <#{self.config.gate_assignments_channel_id}> and grab the {gate_data['emoji']}"
             " from the list and head over to the gate!"
         )
-        await assignment_channel.send(message, allowed_mentions=discord.AllowedMentions(users=True))  # pyright: ignore[reportAttributeAccessIssue]
+        await assignment_channel.send(message, allowed_mentions=discord.AllowedMentions(users=True))
 
         for member in people:
             await self.analytics_repository.set_last_strike_gate(member.id, gate_data["name"])
@@ -123,16 +127,17 @@ class StrikeQueueService:
         dm_owner = gate_data.get("owner")
         if dm_owner is not None:
             dm_info = await self.analytics_repository.get_dm_info(dm_owner)
-            if dm_info and dm_info.get("dm_gates"):
+            dm_gates = dm_info.get("dm_gates") if dm_info else None
+            if dm_gates:
                 await self.analytics_repository.record_strike_team_reinforcement(
                     user_ids=[member.id for member in people],
                     dm_id=dm_owner,
                     gate_name=gate_data["name"],
-                    gate_info=cast(GateDocument, dm_info["dm_gates"][-1]),
+                    gate_info=dm_gates[-1],
                 )
 
         await self.strike_queue_repository.remove_members([item.member_id for item in selected_entries])
-        await self.refresh_queue_message(guild=guild, view_factory=view_factory)
+        await self.refresh_queue_message(guild=guild)
 
         return AssignResult(
             success=True,
@@ -149,18 +154,15 @@ class StrikeQueueService:
         self,
         *,
         guild: discord.Guild,
-        view_factory: Callable[[], Any],
     ) -> QueueRefreshResult:
         entries = await self.strike_queue_repository.list_entries()
-        channel = guild.get_channel(self.config.strike_queue_channel_id)
-        if channel is None:
-            raise ValueError("Strike queue channel not found")
+        channel = require_text_channel(guild, self.config.strike_queue_channel_id, name="Strike queue")
 
         embed = await self.presentation_service.build_strike_queue_embed(guild=guild, entries=entries)
         return await self.presentation_service.refresh_queue_message(
-            channel=channel,  # pyright: ignore[reportArgumentType]
+            channel=channel,
             meta_key=f"strike_queue:{self.config.strike_queue_channel_id}",
             embed_title_prefix="Strike Team Queue",
             embed=embed,
-            view=view_factory(),
+            view=self.view_factory(),
         )

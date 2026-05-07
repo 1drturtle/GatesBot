@@ -26,7 +26,7 @@ def test_signup_upserts_entry_records_analytics_and_refreshes() -> None:
     service, dm_repo, _, analytics, _ = make_dm_service(queue)
     message = SimpleNamespace(author=member, guild=FakeGuild(1, members=[member]), id=99)
 
-    result = asyncio.run(service.signup_from_message(message=message, text="tier 3", view_factory=object))
+    result = asyncio.run(service.signup_from_message(message=message, text="tier 3"))
 
     assert result.success is True
     assert dm_repo.upserts == [{"member_id": 10, "text": "tier 3", "message_id": 99}]
@@ -38,7 +38,7 @@ def test_update_member_changes_text_and_refreshes() -> None:
     queue = make_queue()
     service, dm_repo, _, _, _ = make_dm_service(queue, entries=[make_ready_entry(10, "old")])
 
-    result = asyncio.run(service.update_member(guild=FakeGuild(1), member_id=10, text="new", view_factory=object))
+    result = asyncio.run(service.update_member(guild=FakeGuild(1), member_id=10, text="new"))
 
     assert result.success is True
     assert dm_repo.entries[0].text == "new"
@@ -49,9 +49,7 @@ def test_leave_member_removes_entry_and_optionally_adjusts_analytics() -> None:
     queue = make_queue()
     service, dm_repo, _, analytics, _ = make_dm_service(queue, entries=[make_ready_entry(10)])
 
-    result = asyncio.run(
-        service.leave_member(guild=FakeGuild(1), member_id=10, view_factory=object, adjust_signup_count=True)
-    )
+    result = asyncio.run(service.leave_member(guild=FakeGuild(1), member_id=10, adjust_signup_count=True))
 
     assert result.success is True
     assert dm_repo.entries == []
@@ -61,9 +59,7 @@ def test_leave_member_removes_entry_and_optionally_adjusts_analytics() -> None:
 def test_leave_member_reports_missing_entry_without_refresh() -> None:
     service, _, _, analytics, _ = make_dm_service(make_queue())
 
-    result = asyncio.run(
-        service.leave_member(guild=FakeGuild(1), member_id=10, view_factory=object, adjust_signup_count=True)
-    )
+    result = asyncio.run(service.leave_member(guild=FakeGuild(1), member_id=10, adjust_signup_count=True))
 
     assert result.success is False
     analytics.record_dm_queue_signup.assert_not_awaited()
@@ -94,7 +90,6 @@ def test_assign_dm_to_group_validates_selection(
             group_number=1,
             queue_number=queue_number,
             dm_member_id=dm_member_id,
-            view_factory=object,
         )
     )
 
@@ -116,7 +111,6 @@ def test_assign_dm_to_group_rejects_missing_member_and_invalid_group() -> None:
             summoner=make_member(20, "Assistant"),
             group_number=1,
             queue_number=1,
-            view_factory=object,
         )
     )
     invalid_group = asyncio.run(
@@ -125,7 +119,6 @@ def test_assign_dm_to_group_rejects_missing_member_and_invalid_group() -> None:
             summoner=make_member(20, "Assistant"),
             group_number=2,
             queue_number=1,
-            view_factory=object,
         )
     )
 
@@ -149,7 +142,6 @@ def test_assign_dm_to_group_rejects_reassignment_when_disabled() -> None:
             group_number=1,
             queue_number=1,
             allow_reassignment=False,
-            view_factory=object,
         )
     )
 
@@ -173,7 +165,6 @@ def test_assign_dm_to_group_rejects_missing_assignment_channel_after_saving_assi
             summoner=make_member(20, "Assistant"),
             group_number=1,
             queue_number=1,
-            view_factory=object,
         )
     )
 
@@ -204,7 +195,6 @@ def test_assign_dm_to_group_successfully_assigns_and_removes_dm() -> None:
             summoner=summoner,
             group_number=1,
             dm_member_id=dm_member.id,
-            view_factory=object,
         )
     )
 
@@ -237,7 +227,8 @@ def test_refresh_queue_message_raises_when_channel_missing() -> None:
         queue_repository=InMemoryQueueRepository(make_queue()),
         analytics_repository=make_analytics(),
         presentation_service=make_presentation(),
+        view_factory=object,
     )
 
     with pytest.raises(ValueError, match="DM queue channel not found"):
-        asyncio.run(service.refresh_queue_message(guild=FakeGuild(1), view_factory=object))
+        asyncio.run(service.refresh_queue_message(guild=FakeGuild(1)))

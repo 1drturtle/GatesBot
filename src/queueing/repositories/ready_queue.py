@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
 
 import pymongo
+from pymongo.asynchronous.collection import AsyncCollection
 
 
 @dataclass(slots=True)
@@ -18,7 +18,7 @@ class ReadyQueueEntry:
 class ReadyQueueRepository:
     def __init__(
         self,
-        collection: Any,
+        collection: AsyncCollection,
         *,
         text_field: str,
     ):
@@ -71,10 +71,10 @@ class ReadyQueueRepository:
 
 
 class DMQueueRepository(ReadyQueueRepository):
-    def __init__(self, collection: Any):
+    def __init__(self, collection: AsyncCollection):
         super().__init__(collection, text_field="ranks")
 
 
 class StrikeQueueRepository(ReadyQueueRepository):
-    def __init__(self, collection: Any):
+    def __init__(self, collection: AsyncCollection):
         super().__init__(collection, text_field="content")

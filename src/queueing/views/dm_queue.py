@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import disnake as discord
 
+from common.discord_utils import require_interaction_guild
 from queueing.services import get_queue_services
 
 
@@ -20,9 +21,8 @@ class DMQueueUI(discord.ui.View):
     async def leave_button(self, button: discord.ui.Button, inter: discord.MessageInteraction):
         del button
         result = await self.dm_service.leave_member(
-            guild=inter.guild,  # pyright: ignore[reportArgumentType]
+            guild=require_interaction_guild(inter),
             member_id=inter.author.id,
-            view_factory=lambda: DMQueueUI(self.bot),
             adjust_signup_count=True,
         )
 

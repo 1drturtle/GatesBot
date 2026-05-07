@@ -1,8 +1,32 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import cast
 
 import disnake as discord
+from pymongo.asynchronous.collection import AsyncCollection
+
+
+def require_message_guild(message: discord.Message) -> discord.Guild:
+    if message.guild is None:
+        raise ValueError("Message is not associated with a guild")
+    return message.guild
+
+
+def require_interaction_guild(interaction: discord.Interaction) -> discord.Guild:
+    if interaction.guild is None:
+        raise ValueError("Interaction is not associated with a guild")
+    return interaction.guild
+
+
+def require_interaction_member(interaction: discord.Interaction) -> discord.Member:
+    return cast(discord.Member, interaction.author)
+
+
+def require_text_channel(guild: discord.Guild, channel_id: int, *, name: str) -> discord.TextChannel:
+    channel = guild.get_channel(channel_id)
+    if channel is None:
+        raise ValueError(f"{name} channel not found")
+    return cast(discord.TextChannel, channel)
 
 
 async def try_delete(message: discord.Message) -> None:
@@ -15,7 +39,7 @@ async def try_delete(message: discord.Message) -> None:
 async def find_or_migrate_queue_message_id(
     *,
     channel: discord.TextChannel,
-    meta_db: Any,
+    meta_db: AsyncCollection,
     meta_key: str,
     embed_title_prefix: str,
     bot_user_id: int | None = None,

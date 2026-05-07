@@ -10,7 +10,6 @@ from queueing.repositories.ready_queue import ReadyQueueEntry
 from queueing.services.dm_queue import DMQueueService
 from queueing.services.player_queue import PlayerQueueService
 from queueing.services.strike_queue import StrikeQueueService
-
 from tests.helpers.fakes import (
     FakeMember,
     FakeRole,
@@ -119,6 +118,7 @@ def make_player_service(
         gate_repository=InMemoryGateRepository(gate),
         analytics_repository=analytics or make_analytics(),
         presentation_service=presentation or make_presentation(),
+        view_factory=object,
     )
     service.refresh_queue_message = AsyncMock()
     return service, service.queue_repository, service.analytics_repository, service.presentation_service
@@ -138,6 +138,7 @@ def make_dm_service(
         queue_repository=InMemoryQueueRepository(queue),
         analytics_repository=analytics or make_analytics(),
         presentation_service=presentation or make_presentation(),
+        view_factory=object,
     )
     service.refresh_queue_message = AsyncMock()
     return (
@@ -163,6 +164,7 @@ def make_strike_service(
         gate_repository=InMemoryGateRepository(gates),
         analytics_repository=analytics or make_analytics(),
         presentation_service=presentation or make_presentation(),
+        view_factory=object,
     )
     service.refresh_queue_message = AsyncMock()
     return (

@@ -13,7 +13,6 @@ from common.checks import has_any_role, has_role
 from common.embeds import create_default_embed
 from queueing.models import Group
 from queueing.services import get_queue_services
-from queueing.views import DMQueueUI
 
 GateGroup = namedtuple("GateGroup", "gate claimed name")
 
@@ -57,7 +56,6 @@ class DMQueue(commands.Cog):
         await self.dm_service.signup_from_message(
             message=msg,
             text=rank_content,
-            view_factory=lambda: DMQueueUI(self.bot),
         )
 
         try:
@@ -76,7 +74,6 @@ class DMQueue(commands.Cog):
         guild = self.bot.get_guild(self.server_id)
         await self.dm_service.refresh_queue_message(
             guild=guild,
-            view_factory=lambda: DMQueueUI(self.bot),
         )
 
     @commands.group(name="dm", invoke_without_command=True)
@@ -97,7 +94,6 @@ class DMQueue(commands.Cog):
             summoner=ctx.author,
             group_number=group_num,
             queue_number=queue_num,
-            view_factory=lambda: DMQueueUI(self.bot),
             allow_reassignment=True,
         )
         if not result.success:
@@ -118,7 +114,6 @@ class DMQueue(commands.Cog):
             guild=ctx.guild,
             member_id=ctx.author.id,
             text=rank_content,
-            view_factory=lambda: DMQueueUI(self.bot),
         )
 
         await ctx.send(embed=embed, delete_after=10)
@@ -142,7 +137,6 @@ class DMQueue(commands.Cog):
         await self.dm_service.leave_member(
             guild=ctx.guild,
             member_id=ctx.author.id,
-            view_factory=lambda: DMQueueUI(self.bot),
             adjust_signup_count=True,
         )
 
@@ -159,7 +153,6 @@ class DMQueue(commands.Cog):
         await self.dm_service.leave_member(
             guild=ctx.guild,
             member_id=to_remove.id,
-            view_factory=lambda: DMQueueUI(self.bot),
             adjust_signup_count=False,
         )
 

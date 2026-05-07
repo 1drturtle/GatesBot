@@ -6,7 +6,6 @@ from datetime import timedelta
 import disnake as discord
 from disnake.ext import commands
 
-
 log = logging.getLogger(__name__)
 
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import disnake as discord
@@ -27,7 +27,7 @@ COGS = {
 
 class GatesBot(commands.Bot):
     def __init__(self, command_prefix=get_prefix, desc: str = "", **options: Any):
-        self.launch_time = datetime.utcnow()
+        self.launch_time = datetime.now(UTC)
         self.ready_time: datetime | None = None
         self._dev_id = settings.dev_id
         self.environment = settings.environment
@@ -47,7 +47,7 @@ class GatesBot(commands.Bot):
 
     @property
     def uptime(self):
-        return datetime.utcnow() - self.launch_time
+        return datetime.now(UTC) - self.launch_time
 
 
 def build_bot() -> GatesBot:

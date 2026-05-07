@@ -9,7 +9,6 @@ import common.constants as constants
 from common.checks import has_role
 from common.embeds import create_default_embed
 from queueing.services import get_queue_services
-from queueing.views import StrikeQueueUI
 
 log = logging.getLogger(__name__)
 
@@ -43,7 +42,6 @@ class StrikeQueue(commands.Cog):
 
     @commands.Cog.listener(name="on_message")
     async def strike_queue_listener(self, msg):
-
         if msg.channel.id != self.queue_channel_id:
             return
 
@@ -55,7 +53,6 @@ class StrikeQueue(commands.Cog):
         await self.strike_service.signup_from_message(
             message=msg,
             text=msg_content,
-            view_factory=lambda: StrikeQueueUI(self.bot),
         )
 
         # old_roles_data = await self.data_db.find_one(
@@ -82,7 +79,6 @@ class StrikeQueue(commands.Cog):
         guild = self.bot.get_guild(self.server_id)
         await self.strike_service.refresh_queue_message(
             guild=guild,
-            view_factory=lambda: StrikeQueueUI(self.bot),
         )
 
     @commands.group(name="strike", invoke_without_command=True)
@@ -102,7 +98,6 @@ class StrikeQueue(commands.Cog):
             guild=ctx.guild,
             queue_numbers=list(queue_nums),
             gate_name=gate_name,
-            view_factory=lambda: StrikeQueueUI(self.bot),
         )
         if not result.success:
             return await ctx.send(result.message, delete_after=5)
@@ -121,7 +116,6 @@ class StrikeQueue(commands.Cog):
             guild=ctx.guild,
             member_id=ctx.author.id,
             text=rank_content,
-            view_factory=lambda: StrikeQueueUI(self.bot),
         )
 
         await ctx.send(embed=embed, delete_after=10)
@@ -145,7 +139,6 @@ class StrikeQueue(commands.Cog):
         await self.strike_service.leave_member(
             guild=ctx.guild,
             member_id=ctx.author.id,
-            view_factory=lambda: StrikeQueueUI(self.bot),
         )
 
         await ctx.send(embed=embed, delete_after=10)
@@ -161,7 +154,6 @@ class StrikeQueue(commands.Cog):
         await self.strike_service.leave_member(
             guild=ctx.guild,
             member_id=to_remove.id,
-            view_factory=lambda: StrikeQueueUI(self.bot),
         )
 
         await ctx.send(embed=embed, delete_after=10)
