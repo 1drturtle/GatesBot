@@ -113,7 +113,7 @@ class PlayerQueueManageUI(ManageUIParent):
         del button
         await inter.response.defer()
 
-        guild = cast(discord.Guild, inter.author)
+        guild = cast(discord.Guild, inter.guild)
         actor = cast(discord.Member, inter.author)
         raw_queue_channel = guild.get_channel(self.config.player_queue_channel_id)
         if raw_queue_channel is None:
