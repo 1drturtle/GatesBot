@@ -306,7 +306,7 @@ class GroupManagerUI(ManageUIParent):
             summoner=cast(discord.Member, inter.author),
             group_number=self.group_num + 1,
             dm_member_id=who.id,
-            allow_reassignment=False,
+            allow_reassignment=True,
         )
         if not result.success:
             return await inter.send(result.message, ephemeral=True)
