@@ -22,11 +22,12 @@ class Placeholders(commands.Cog):
         self.active_db = bot.mdb["active_users"]
         self.server_id = constants.GATES_SERVER if self.bot.environment != "testing" else constants.DEBUG_SERVER
         self.db_task = self.run_placeholders.start()
-        self.inactive_listener = self.check_inactive.start()
+        # Inactive role assignment is currently disabled.
+        # self.inactive_listener = self.check_inactive.start()
 
     def cog_unload(self):
         self.db_task.cancel()
-        self.inactive_listener.cancel()
+        # self.inactive_listener.cancel()
 
     @commands.Cog.listener(name="on_message")
     async def placeholder_listener(self, message):
